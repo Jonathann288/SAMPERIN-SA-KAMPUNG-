@@ -1,0 +1,25 @@
+package routes
+
+import (
+	"github.com/gin-gonic/gin"
+	"samsat_backend/controllers"
+)
+
+func SetupRoutes(r *gin.Engine) {
+	// 🔹 Tambah data booking
+	r.POST("/booking", controllers.CreateBooking)
+
+	// 🔹 Ambil semua data booking (atau cari via query)
+	r.GET("/booking/search", controllers.SearchBooking)
+
+	// 🔹 Ambil detail booking berdasarkan ID (buat antrian-lihat)
+	r.GET("/booking/all", controllers.GetAllBookings) 
+
+	// 🔹 Update data booking
+	r.PUT("/booking/update/:id", controllers.UpdateBooking)
+
+	// 🔹 Cek update untuk notifikasi lokal
+	r.GET("/check-update", controllers.CheckUpdate)
+
+
+}
