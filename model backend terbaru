@@ -1,0 +1,52 @@
+package models
+
+import (
+	"time"
+
+	"gorm.io/gorm"
+)
+
+type PajakKendaraanBermotor struct {
+	gorm.Model
+	Nama           string
+	NomorKendaraan string
+	NomorHP        string
+	Tanggal        time.Time `gorm:"type:date"`
+	Kampung        string
+	Catatan        string
+	Status         string `gorm:"default:'Menunggu'"`
+	Tim            string `json:"tim" gorm:"type:varchar(100)"`
+	CatatanAdmin   string `json:"catatan_admin" gorm:"type:varchar(255)"`
+	Harga          string `json:"harga" gorm:"type:varchar(100)"`
+	FCMToken       string `json:"fcm_token" gorm:"type:varchar(255)"`
+}
+
+type BalikNamaKendaraan struct {
+	gorm.Model
+	Nama           string
+	NomorKendaraan string
+	NomorHP        string
+	Tanggal        time.Time `gorm:"type:date"`
+	Kampung        string
+	Catatan        string
+	Status         string `gorm:"default:'Menunggu'"`
+	Tim            string `json:"tim" gorm:"type:varchar(100)"`
+	CatatanAdmin   string `json:"catatan_admin" gorm:"type:varchar(255)"`
+	Harga          string `json:"harga" gorm:"type:varchar(100)"`
+	FCMToken       string `json:"fcm_token" gorm:"type:varchar(255)"`
+}
+
+type MutasiKendaraan struct {
+	gorm.Model
+	Nama           string
+	NomorKendaraan string
+	NomorHP        string
+	Tanggal        time.Time `gorm:"type:date"`
+	Kampung        string
+	Catatan        string
+	Status         string `gorm:"default:'Menunggu'"`
+	Tim            string `json:"tim" gorm:"type:varchar(100)"`
+	CatatanAdmin   string `json:"catatan_admin" gorm:"type:varchar(255)"`
+	Harga          string `json:"harga" gorm:"type:varchar(100)"`
+	FCMToken       string `json:"fcm_token" gorm:"type:varchar(255)"`
+}
