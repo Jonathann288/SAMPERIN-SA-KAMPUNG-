@@ -1,0 +1,107 @@
+package controllers
+
+import (
+	"samsat_backend/config"
+	"samsat_backend/models"
+	"samsat_backend/utils"
+	"time"
+
+	"github.com/gin-gonic/gin"
+	"golang.org/x/crypto/bcrypt"
+)
+
+// ======================================================
+// REGISTER USER
+// ======================================================
+func Register(c *gin.Context) {
+	var input struct {
+		Nama     string `json:"nama" binding:"required"`
+		NomorHP  string `json:"nomor_hp" binding:"required"`
+		Password string `json:"password" binding:"required"`
+		FCMToken string `json:"fcm_token"`
+	}
+
+	if err := c.ShouldBindJSON(&input); err != nil {
+		utils.Error(c, "Input tidak valid: "+err.Error())
+		return
+	}
+
+	// Cek apakah user sudah terdaftar
+	var existing models.User
+	if err := config.DB.Where("nomor_hp = ?", input.NomorHP).First(&existing).Error; err == nil {
+		utils.Error(c, "Nomor HP sudah terdaftar, silakan login")
+		return
+	}
+
+	// Hash password sebelum disimpan
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(input.Password), bcrypt.DefaultCost)
+	if err != nil {
+		utils.Error(c, "Gagal mengenkripsi password")
+		return
+	}
+
+	user := models.User{
+		Nama:     input.Nama,
+		NomorHP:  input.NomorHP,
+		Password: string(hashedPassword),
+		FCMToken: input.FCMToken,
+	}
+
+	if err := config.DB.Create(&user).Error; err != nil {
+		utils.Error(c, "Gagal menyimpan user: "+err.Error())
+		return
+	}
+
+	utils.Success(c, gin.H{
+		"message": "Registrasi berhasil, silakan login",
+		"user":    user,
+	})
+}
+
+// ======================================================
+// LOGIN USER
+// ======================================================
+func Login(c *gin.Context) {
+	var input struct {
+		NomorHP  string `json:"nomor_hp" binding:"required"`
+		Password string `json:"password" binding:"required"`
+		FCMToken string `json:"fcm_token"`
+	}
+
+	if err := c.ShouldBindJSON(&input); err != nil {
+		utils.Error(c, "Input tidak valid: "+err.Error())
+		return
+	}
+
+	var user models.User
+	if err := config.DB.Where("nomor_hp = ?", input.NomorHP).First(&user).Error; err != nil {
+		utils.Error(c, "Nomor HP belum terdaftar")
+		return
+	}
+
+	// Verifikasi password
+	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(input.Password)); err != nil {
+		utils.Error(c, "Password salah")
+		return
+	}
+
+	// Simpan FCM token terbaru (jika dikirim)
+	if input.FCMToken != "" {
+		user.FCMToken = input.FCMToken
+		config.DB.Save(&user)
+	}
+
+	// Buat token sederhana (JWT opsional, tapi di sini pakai sederhana dulu)
+	token := utils.GenerateSimpleToken(user.NomorHP, user.ID)
+
+	utils.Success(c, gin.H{
+		"message": "Login berhasil",
+		"user": gin.H{
+			"id":       user.ID,
+			"nama":     user.Nama,
+			"nomor_hp": user.NomorHP,
+		},
+		"token":     token,
+		"login_at":  time.Now().Format("2006-01-02 15:04:05"),
+	})
+}
