@@ -39,3 +39,5 @@ func AdminLogin(c *gin.Context) {
         },
     })
 }
+
+$2y$12$r3gbEkWtVzVfbEaU6uGx9O7TpAuEqAA99rsa8Hdd353gSbVO/eyAK
