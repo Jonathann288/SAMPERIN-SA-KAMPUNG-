@@ -1,5 +1,43 @@
-ini route :
-r.POST("/admin/login", controllers.AdminLogin)
+Ini Model :
+package models
+
+import (
+    "time"
+    "gorm.io/gorm"
+)
+
+type Admin struct {
+    ID        uint           `json:"id" gorm:"primaryKey;autoIncrement"`
+    Username  string         `json:"username" gorm:"unique;not null"`
+    Password  string         `json:"password" gorm:"not null"`
+    Nama      string         `json:"nama" gorm:"not null"`
+    Role      string         `json:"role" gorm:"default:'admin'"`
+    CreatedAt time.Time      `json:"created_at"`
+    UpdatedAt time.Time      `json:"updated_at"`
+    DeletedAt gorm.DeletedAt `json:"-" gorm:"index"`
+}
+
+
+ini route : 
+package routes
+
+import (
+    "github.com/gin-gonic/gin"
+    "samsat_backend/controllers"
+)
+
+func SetupRoutes(r *gin.Engine) {
+    // 🔹 Login admin (global)
+    r.POST("/admin/login", controllers.AdminLogin)
+
+    // 🔹 Route lainnya
+    r.GET("/booking/all", controllers.GetAllBookings)
+    r.PUT("/booking/update/:id", controllers.UpdateBooking)
+    r.GET("/baliknama/all", controllers.GetAllBalikNama)
+    r.PUT("/baliknama/update/:id", controllers.UpdateBalikNama)
+    r.GET("/mutasikendaraan/all", controllers.GetAllMutasi)
+    r.PUT("/mutasikendaraan/update/:id", controllers.UpdateMutasi)
+}
 
 
 ini controller :
@@ -9,9 +47,11 @@ import (
     "net/http"
     "samsat_backend/config"
     "samsat_backend/models"
+
     "github.com/gin-gonic/gin"
 )
 
+// 🔹 Login admin global
 func AdminLogin(c *gin.Context) {
     var input struct {
         Username string `json:"username"`
@@ -29,7 +69,7 @@ func AdminLogin(c *gin.Context) {
         return
     }
 
-    if admin.Password != input.Password { // nanti bisa diubah ke bcrypt
+    if admin.Password != input.Password {
         c.JSON(http.StatusUnauthorized, gin.H{"error": "Password salah"})
         return
     }
@@ -41,24 +81,7 @@ func AdminLogin(c *gin.Context) {
             "id":       admin.ID,
             "username": admin.Username,
             "nama":     admin.Nama,
+            "role":     admin.Role,
         },
     })
-}
-
-ini model : 
-package models
-
-import (
-    "time"
-    "gorm.io/gorm"
-)
-
-type Admin struct {
-    ID        uint           `json:"id" gorm:"primaryKey;autoIncrement"`
-    Username  string         `json:"username" gorm:"unique;not null"`
-    Password  string         `json:"password" gorm:"not null"`
-    Nama      string         `json:"nama" gorm:"not null"`
-    CreatedAt time.Time      `json:"created_at"`
-    UpdatedAt time.Time      `json:"updated_at"`
-    DeletedAt gorm.DeletedAt `json:"-" gorm:"index"`
 }
