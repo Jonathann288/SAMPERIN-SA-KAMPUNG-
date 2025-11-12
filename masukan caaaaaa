@@ -1,0 +1,53 @@
+tambahkan ini di controller admin
+
+// ✅ Ambil semua admin
+func GetAllAdmin(c *gin.Context) {
+    var admins []models.Admin
+    if err := config.DB.Find(&admins).Error; err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data admin"})
+        return
+    }
+
+    c.JSON(http.StatusOK, gin.H{
+        "status": "success",
+        "data":   admins,
+    })
+}
+
+// ✅ Tambah admin baru (password otomatis di-hash)
+func CreateAdmin(c *gin.Context) {
+    var input models.Admin
+
+    if err := c.ShouldBindJSON(&input); err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "Input tidak valid"})
+        return
+    }
+
+    // 🔒 Hash password sebelum disimpan
+    hashedPassword, err := bcrypt.GenerateFromPassword([]byte(input.Password), bcrypt.DefaultCost)
+    if err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengenkripsi password"})
+        return
+    }
+    input.Password = string(hashedPassword)
+
+    if err := config.DB.Create(&input).Error; err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menambahkan admin"})
+        return
+    }
+
+    c.JSON(http.StatusOK, gin.H{
+        "status":  "success",
+        "message": "Admin baru berhasil ditambahkan",
+        "data":    input,
+    })
+}
+
+
+tambahkan ini d route
+
+// ✅ Admin management
+r.GET("/admin/all", controllers.GetAllAdmin)
+r.POST("/admin/create", controllers.CreateAdmin)
+
+
