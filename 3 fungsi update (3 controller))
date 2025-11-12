@@ -1,0 +1,141 @@
+//Antrian Controller
+
+ public function update(Request $request, $id)
+    {
+        try {
+            // Payload untuk dikirim ke backend Go
+            $payload = [
+                'tanggal'        => $request->input('tanggal'),
+                'tim'            => $request->input('tim'),
+                'catatan_admin'  => $request->input('catatan'),
+                'harga'          => $request->input('total'),
+                'status'         => $request->input('status'),
+            ];
+
+            \Log::info('📦 Payload dikirim ke backend:', $payload);
+
+            // Mengirim update ke backend Go
+            $response = Http::timeout(5)
+                ->withHeaders([
+                    'Accept'       => 'application/json',
+                    'Content-Type' => 'application/json',
+                ])
+                ->asJson()
+                ->put(env('BACKEND_API_URL')."/booking/update/{$id}", $payload);
+
+            if ($response->successful()) {
+                // Kirim notifikasi ke backend Go
+                Http::post(env('BACKEND_GO_API_URL')."/send-notification", [
+                    'status' => $request->input('status'),
+                    'vehicle_number' => $request->input('vehicle_number'),
+                ]);
+
+                \Log::info('✅ Update sukses:', $response->json());
+                return redirect()->route('antrian')->with('success', '✅ Data berhasil diperbarui di server backend.');
+            } else {
+                \Log::error('⚠️ Gagal update data backend', [
+                    'status' => $response->status(),
+                    'body'   => $response->body(),
+                ]);
+                return redirect()->back()->with('error', '⚠️ Gagal memperbarui data ke backend.');
+            }
+        } catch (\Exception $e) {
+            \Log::error('🔥 Exception saat update data:', [
+                'id'    => $id,
+                'error' => $e->getMessage(),
+            ]);
+            return redirect()->back()->with('error', 'Terjadi kesalahan: ' . $e->getMessage());
+        }
+    }
+
+//balik nama controller
+
+public function update(Request $request, $id)
+    {
+        try {
+            $payload = [
+                'tanggal'        => $request->input('tanggal'),
+                'tim'            => $request->input('tim'),
+                'catatan_admin'  => $request->input('catatan'),
+                'harga'          => $request->input('total'),
+                'status'         => $request->input('status'),
+            ];
+
+            \Log::info('📦 Payload dikirim ke backend:', $payload);
+
+            // Mengirim update ke backend Go
+            $response = Http::timeout(5)
+                ->withHeaders([
+                    'Accept'       => 'application/json',
+                    'Content-Type' => 'application/json',
+                ])
+                ->asJson()
+                ->put(env('BACKEND_API_URL') . "/balik-nama/update/{$id}", $payload);
+
+            if ($response->successful()) {
+                // Kirim notifikasi ke backend Go
+                Http::post(env('BACKEND_GO_API_URL')."/send-notification", [
+                    'status' => $request->input('status'),
+                    'vehicle_number' => $request->input('vehicle_number'),
+                ]);
+
+                \Log::info('✅ Update sukses:', $response->json());
+                return redirect()->route('balik-nama')->with('success', '✅ Data Balik Nama berhasil diperbarui.');
+            } else {
+                \Log::error('⚠️ Gagal update data backend', [
+                    'status' => $response->status(),
+                    'body'   => $response->body(),
+                ]);
+                return redirect()->back()->with('error', '⚠️ Gagal memperbarui data Balik Nama.');
+            }
+        } catch (\Exception $e) {
+            \Log::error('🔥 Exception saat update data Balik Nama:', ['error' => $e->getMessage()]);
+            return redirect()->back()->with('error', '🔥 Terjadi kesalahan: ' . $e->getMessage());
+        }
+    }
+
+//mutasi controller
+
+public function update(Request $request, $id)
+    {
+        try {
+            $payload = [
+                'tanggal'        => $request->input('tanggal'),
+                'tim'            => $request->input('tim'),
+                'catatan_admin'  => $request->input('catatan'),
+                'harga'          => $request->input('total'),
+                'status'         => $request->input('status'),
+            ];
+
+            \Log::info('📦 Payload dikirim ke backend:', $payload);
+
+            // Mengirim update ke backend Go
+            $response = Http::timeout(5)
+                ->withHeaders([
+                    'Accept'       => 'application/json',
+                    'Content-Type' => 'application/json',
+                ])
+                ->asJson()
+                ->put(env('BACKEND_API_URL') . "/mutasikendaraan/update/{$id}", $payload);
+
+            if ($response->successful()) {
+                // Kirim notifikasi ke backend Go
+                Http::post(env('BACKEND_GO_API_URL')."/send-notification", [
+                    'status' => $request->input('status'),
+                    'vehicle_number' => $request->input('vehicle_number'),
+                ]);
+
+                \Log::info('✅ Update sukses:', $response->json());
+                return redirect()->route('mutasi')->with('success', '✅ Data Mutasi berhasil diperbarui.');
+            } else {
+                \Log::error('⚠️ Gagal update data backend', [
+                    'status' => $response->status(),
+                    'body'   => $response->body(),
+                ]);
+                return redirect()->back()->with('error', '⚠️ Gagal memperbarui data Mutasi.');
+            }
+        } catch (\Exception $e) {
+            \Log::error('🔥 Exception saat update data Mutasi:', ['error' => $e->getMessage()]);
+            return redirect()->back()->with('error', '🔥 Terjadi kesalahan: ' . $e->getMessage());
+        }
+    }
