@@ -1,0 +1,430 @@
+ANTRIAN PAJAK CONTROLLER
+<?php
+
+namespace App\Http\Controllers;
+
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Http;
+
+class AntrianController extends Controller
+{
+    
+    /**
+     * 🔹 Tampilkan semua antrian dari backend 
+     */
+    public function index()
+    {
+        try {
+            $response = Http::timeout(5)->get(env('BACKEND_API_URL')."/booking/all");
+
+            if ($response->successful()) {
+                $data = $response->json()['data'] ?? [];
+            } else {
+                \Log::error('❌ Gagal ambil data antrian', [
+                    'status' => $response->status(),
+                    'body'   => $response->body(),
+                ]);
+                $data = [];
+            }
+        } catch (\Exception $e) {
+            \Log::error('🔥 Gagal koneksi ke backend:', ['error' => $e->getMessage()]);
+            $data = [];
+        }
+
+        return view('antrian', compact('data'));
+    }
+
+    /**
+     * 🔹 Menampilkan detail satu antrian dari data /booking/all
+     * (karena backend tidak punya endpoint GET /booking/:id)
+     */
+    public function show($id)
+    {
+        try {
+            // Ambil semua data
+            $response = Http::timeout(5)->get(env('BACKEND_API_URL')."/booking/all");
+
+            if ($response->successful()) {
+                $allData = $response->json()['data'] ?? [];
+
+                // 🔍 Filter berdasarkan ID
+                $data = collect($allData)->firstWhere('id', (int) $id);
+            } else {
+                \Log::error('❌ Gagal ambil data semua antrian', [
+                    'status' => $response->status(),
+                    'body'   => $response->body(),
+                ]);
+                $data = null;
+            }
+        } catch (\Exception $e) {
+            \Log::error('🔥 Exception ambil detail booking:', [
+                'id'    => $id,
+                'error' => $e->getMessage(),
+            ]);
+            $data = null;
+        }
+
+        return view('antrian-lihat', compact('data'));
+    }
+
+    /**
+     * 🔹 Update data booking (PUT /booking/update/:id)
+     */
+    public function update(Request $request, $id)
+    {
+        try {
+            $payload = [
+                'tanggal'        => $request->input('tanggal'),
+                'tim'            => $request->input('tim'),
+                'catatan_admin'  => $request->input('catatan'),
+                'harga'          => $request->input('total'),
+                'status'         => $request->input('status'),
+            ];
+
+            \Log::info('📦 Payload dikirim ke backend:', $payload);
+
+            $response = Http::timeout(5)
+                ->withHeaders([
+                    'Accept'       => 'application/json',
+                    'Content-Type' => 'application/json',
+                ])
+                ->asJson()
+                ->put(env('BACKEND_API_URL')."/booking/update/{$id}", $payload);
+
+            if ($response->successful()) {
+                \Log::info('✅ Update sukses:', $response->json());
+                return redirect()->route('antrian')->with('success', '✅ Data berhasil diperbarui di server backend.');
+            } else {
+                \Log::error('⚠️ Gagal update data backend', [
+                    'status' => $response->status(),
+                    'body'   => $response->body(),
+                ]);
+                return redirect()->back()->with('error', '⚠️ Gagal memperbarui data ke backend.');
+            }
+        } catch (\Exception $e) {
+            \Log::error('🔥 Exception saat update data:', [
+                'id'    => $id,
+                'error' => $e->getMessage(),
+            ]);
+            return redirect()->back()->with('error', 'Terjadi kesalahan: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * 🔹 Debug: lihat langsung data dari backend
+     */
+    public function fetchBackendData()
+    {
+        try {
+            $response = Http::timeout(5)->get(env('BACKEND_API_URL')."/booking/all");
+
+            if ($response->successful()) {
+                return response()->json($response->json());
+            } else {
+                return response()->json([
+                    'error'  => 'Gagal mengambil data dari backend.',
+                    'status' => $response->status(),
+                    'body'   => $response->body(),
+                ], $response->status());
+            }
+        } catch (\Exception $e) {
+            return response()->json([
+                'error'   => 'Gagal koneksi ke backend.',
+                'message' => $e->getMessage(),
+            ], 500);
+        }
+    }
+}
+
+
+
+
+BALIK NAMA CONTROLLER
+<?php
+
+namespace App\Http\Controllers;
+
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Http;
+
+class BalikNamaController extends Controller
+{
+    /**
+     * 🔹 Menampilkan daftar semua data Balik Nama dari backend
+     */
+    public function index()
+    {
+        try {
+            // Ambil semua data dari endpoint backend
+            $response = Http::timeout(5)->get(env('BACKEND_API_URL') . "/baliknama/all");
+
+            if ($response->successful()) {
+                $allData = $response->json()['data'] ?? [];
+
+                // 🔹 Tidak perlu filter lagi kalau endpoint sudah khusus untuk Balik Nama
+                $data = collect($allData)->values()->all();
+            } else {
+                \Log::error('❌ Gagal ambil data Balik Nama', [
+                    'status' => $response->status(),
+                    'body'   => $response->body(),
+                ]);
+                $data = [];
+            }
+        } catch (\Exception $e) {
+            \Log::error('🔥 Gagal koneksi ke backend Balik Nama:', ['error' => $e->getMessage()]);
+            $data = [];
+        }
+
+        return view('balik-nama', compact('data'));
+    }
+
+    /**
+     * 🔹 Menampilkan detail satu data Balik Nama berdasarkan ID
+     */
+    public function show($id)
+    {
+        try {
+            // Ambil semua data dari backend
+            $response = Http::timeout(5)->get(env('BACKEND_API_URL') . "/baliknama/all");
+
+            if ($response->successful()) {
+                $allData = $response->json()['data'] ?? [];
+                // 🔍 Ambil satu data berdasarkan ID
+                $data = collect($allData)->firstWhere('id', (int) $id);
+            } else {
+                $data = null;
+            }
+        } catch (\Exception $e) {
+            \Log::error('🔥 Exception ambil detail Balik Nama:', ['error' => $e->getMessage()]);
+            $data = null;
+        }
+
+        return view('balik-nama-lihat', compact('data'));
+    }
+
+    /**
+     * 🔹 Update data Balik Nama (PUT /baliknama/update/:id)
+     */
+    public function update(Request $request, $id)
+    {
+        try {
+            $payload = [
+                'tanggal'        => $request->input('tanggal'),
+                'tim'            => $request->input('tim'),
+                'catatan_admin'  => $request->input('catatan'),
+                'harga'          => $request->input('total'),
+                'status'         => $request->input('status'),
+            ];
+
+            \Log::info('📦 Payload dikirim ke backend:', $payload);
+
+            $response = Http::timeout(5)
+                ->withHeaders([
+                    'Accept'       => 'application/json',
+                    'Content-Type' => 'application/json',
+                ])
+                ->asJson()
+                ->put(env('BACKEND_API_URL') . "/balik-nama/update/{$id}", $payload);
+
+            if ($response->successful()) {
+                return redirect()->route('balik-nama')->with('success', '✅ Data Balik Nama berhasil diperbarui.');
+            } else {
+                \Log::error('⚠️ Gagal update data backend:', [
+                    'status' => $response->status(),
+                    'body'   => $response->body(),
+                ]);
+                return redirect()->back()->with('error', '⚠️ Gagal memperbarui data Balik Nama.');
+            }
+        } catch (\Exception $e) {
+            \Log::error('🔥 Exception saat update data Balik Nama:', ['error' => $e->getMessage()]);
+            return redirect()->back()->with('error', '🔥 Terjadi kesalahan: ' . $e->getMessage());
+        }
+    }
+}
+
+
+
+MUTASI CONTROLLER
+<?php
+
+namespace App\Http\Controllers;
+
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Http;
+
+class MutasiController extends Controller
+{
+    /**
+     * 🔹 Menampilkan daftar semua data Mutasi dari backend
+     */
+    public function index()
+    {
+        try {
+            // Ambil semua data dari endpoint backend
+            $response = Http::timeout(5)->get(env('BACKEND_API_URL') . "/mutasikendaraan/all");
+
+            if ($response->successful()) {
+                $allData = $response->json()['data'] ?? [];
+                $data = collect($allData)->values()->all();
+            } else {
+                \Log::error('❌ Gagal ambil data Mutasi', [
+                    'status' => $response->status(),
+                    'body'   => $response->body(),
+                ]);
+                $data = [];
+            }
+        } catch (\Exception $e) {
+            \Log::error('🔥 Gagal koneksi ke backend Mutasi:', ['error' => $e->getMessage()]);
+            $data = [];
+        }
+
+        // ✅ Pastikan view "mutasi" dikirimkan variabel $data
+        return view('mutasi', compact('data'));
+    }
+
+    /**
+     * 🔹 Menampilkan detail satu data Mutasi berdasarkan ID
+     */
+    public function show($id)
+    {
+        try {
+            $response = Http::timeout(5)->get(env('BACKEND_API_URL') . "/mutasikendaraan/all");
+
+            if ($response->successful()) {
+                $allData = $response->json()['data'] ?? [];
+                $data = collect($allData)->firstWhere('id', (int) $id);
+            } else {
+                $data = null;
+            }
+        } catch (\Exception $e) {
+            \Log::error('🔥 Exception ambil detail Mutasi:', ['error' => $e->getMessage()]);
+            $data = null;
+        }
+
+        return view('mutasi-lihat', compact('data'));
+    }
+
+    /**
+     * 🔹 Update data Mutasi (PUT /mutasikendaraan/update/:id)
+     */
+    public function update(Request $request, $id)
+    {
+        try {
+            $payload = [
+                'tanggal'        => $request->input('tanggal'),
+                'tim'            => $request->input('tim'),
+                'catatan_admin'  => $request->input('catatan'),
+                'harga'          => $request->input('total'),
+                'status'         => $request->input('status'),
+            ];
+
+            \Log::info('📦 Payload dikirim ke backend:', $payload);
+
+            $response = Http::timeout(5)
+                ->withHeaders([
+                    'Accept'       => 'application/json',
+                    'Content-Type' => 'application/json',
+                ])
+                ->asJson()
+                ->put(env('BACKEND_API_URL') . "/mutasikendaraan/update/{$id}", $payload);
+
+            if ($response->successful()) {
+                return redirect()->route('mutasi')->with('success', '✅ Data Mutasi berhasil diperbarui.');
+            } else {
+                \Log::error('⚠️ Gagal update data backend:', [
+                    'status' => $response->status(),
+                    'body'   => $response->body(),
+                ]);
+                return redirect()->back()->with('error', '⚠️ Gagal memperbarui data Mutasi.');
+            }
+        } catch (\Exception $e) {
+            \Log::error('🔥 Exception saat update data Mutasi:', ['error' => $e->getMessage()]);
+            return redirect()->back()->with('error', '🔥 Terjadi kesalahan: ' . $e->getMessage());
+        }
+    }
+}
+
+
+
+
+ROUTE WEB PHP
+<?php
+
+use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Auth\LoginController;
+use App\Http\Controllers\AntrianController;
+use App\Http\Controllers\BalikNamaController;
+use App\Http\Controllers\MutasiController;
+use App\Http\Controllers\UserController;
+
+/*
+|--------------------------------------------------------------------------
+| Web Routes
+|--------------------------------------------------------------------------
+| Semua halaman utama aplikasi (frontend Laravel) terhubung ke backend API (Go).
+| Menggunakan 1 user admin global (single login) untuk akses semua fitur.
+|--------------------------------------------------------------------------
+*/
+
+/* =============================
+   🔐 LOGIN & LOGOUT ADMIN
+   ============================= */
+
+Route::get('/login', [LoginController::class, 'showLoginForm'])->name('login');
+Route::post('/login', [LoginController::class, 'login'])->name('login.process');
+Route::get('/logout', [LoginController::class, 'logout'])->name('logout');
+
+/* =============================
+   🔹 ROUTE ADMIN TERPROTEKSI
+   ============================= */
+Route::group([
+   'middleware' => function ($request, \Closure $next) {
+      if (!session('admin_logged_in')) {
+         return redirect()->route('login')
+            ->withErrors(['login' => 'Silakan login terlebih dahulu untuk mengakses halaman admin.']);
+      }
+      return $next($request);
+   }
+], function () {
+
+   // ==========================
+   // 🏠 DASHBOARD ADMIN
+   // ==========================
+   Route::get('/', function () {
+      return view('dashboard');
+   })->name('dashboard');
+
+   // ==========================
+   // 🚗 ANTRIAN PAJAK MOTOR
+   // ==========================
+   Route::get('/antrian', [AntrianController::class, 'index'])->name('antrian');
+   Route::get('/antrian/lihat/{id}', [AntrianController::class, 'show'])->name('antrian.lihat');
+   Route::put('/antrian/update/{id}', [AntrianController::class, 'update'])->name('antrian.update');
+   Route::get('/antrian/test-backend', [AntrianController::class, 'fetchBackendData'])->name('antrian.test');
+
+   // ==========================
+   // 📄 BALIK NAMA KENDARAAN
+   // ==========================
+   Route::get('/balik-nama', [BalikNamaController::class, 'index'])->name('balik-nama');
+   Route::get('/balik-nama/lihat/{id}', [BalikNamaController::class, 'show'])->name('balik-nama.lihat');
+   Route::put('/balik-nama/update/{id}', [BalikNamaController::class, 'update'])->name('balik-nama.update');
+
+   // ==========================
+   // 🚛 MUTASI KENDARAAN
+   // ==========================
+   Route::get('/mutasi', [MutasiController::class, 'index'])->name('mutasi');
+   Route::get('/mutasi/lihat/{id}', [MutasiController::class, 'show'])->name('mutasi.lihat');
+   Route::put('/mutasi/update/{id}', [MutasiController::class, 'update'])->name('mutasi.update');
+
+   // ==========================
+   // 📋 HALAMAN TAMBAHAN
+   // ==========================
+   Route::get('/antrian/selesai', fn() => view('antrian-selesai'))->name('antrian.selesai');
+
+   // ==========================
+   // 🔹 USER MANAGEMENT
+   // ==========================
+   Route::get('/user', [UserController::class, 'index'])->name('user');
+   Route::post('/user/tambah', [UserController::class, 'store'])->name('user.store');
+});
+
