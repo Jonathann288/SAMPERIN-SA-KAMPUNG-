@@ -1,0 +1,33 @@
+INI MODEL BOOKING
+package models
+
+import (
+    "time"
+    "gorm.io/gorm"
+)
+
+type Booking struct {
+    ID              uint           `json:"id" gorm:"primaryKey"`
+    Nama            string         `json:"nama"`
+    NomorKendaraan  string         `json:"nomor_kendaraan"`
+    NomorHp         string         `json:"nomor_hp"`
+    JenisLayanan    string         `json:"jenis_layanan"`
+    Tanggal         string         `json:"tanggal"`
+    Status          string         `json:"status"`
+    CatatanAdmin    string         `json:"catatan_admin"`
+    Tim             string         `json:"tim"`
+    Harga           int            `json:"harga"`
+    CreatedAt       time.Time      `json:"created_at"`
+    UpdatedAt       time.Time      `json:"updated_at"`
+    DeletedAt       gorm.DeletedAt `json:"-" gorm:"index"`
+}
+
+
+INI MODEL UNTUK DASHBOARD
+package models
+
+type DashboardStats struct {
+    TotalKendaraan   int `json:"total_kendaraan"`
+    TotalPembayaran  int `json:"total_pembayaran"`
+    TotalPengguna    int `json:"total_pengguna"`
+}
