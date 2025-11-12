@@ -1,0 +1,48 @@
+INI ENDPOINT DASHBOARD CONTROLLER GO
+
+package controllers
+
+import (
+	"net/http"
+	"samsat_backend/config"
+	"samsat_backend/models"
+
+	"github.com/gin-gonic/gin"
+)
+
+func DashboardStats(c *gin.Context) {
+	var bookings []models.Booking
+	if err := config.DB.Find(&bookings).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data booking"})
+		return
+	}
+
+	totalKendaraan := make(map[string]bool)
+	totalPembayaran := 0
+	totalPengguna := make(map[string]bool)
+
+	for _, b := range bookings {
+		if b.NomorKendaraan != "" {
+			totalKendaraan[b.NomorKendaraan] = true
+		}
+		if b.Status == "Selesai" {
+			totalPembayaran++
+		}
+		if b.NomorHp != "" {
+			totalPengguna[b.NomorHp] = true
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"status": "success",
+		"data": gin.H{
+			"total_kendaraan": len(totalKendaraan),
+			"total_pembayaran": totalPembayaran,
+			"total_pengguna": len(totalPengguna),
+		},
+	})
+}
+
+
+INI ROUTENYA 
+r.GET("/dashboard/stats", controllers.DashboardStats)
