@@ -1,0 +1,443 @@
+package controllers
+
+import (
+	"fmt"
+	"time"
+	"log"
+	"net/http"
+	"your_project/config"
+	"your_project/models"
+	"your_project/utils"
+	"github.com/gin-gonic/gin"
+	"firebase.google.com/go/messaging"
+	"google.golang.org/api/option"
+	"context"
+)
+
+// ======================================================
+// Fungsi Inisialisasi Firebase Client
+// ======================================================
+func initializeFirebase() (*messaging.Client, error) {
+	app, err := firebase.NewApp(context.Background(), nil, option.WithCredentialsFile("path/to/your/serviceAccountKey.json"))
+	if err != nil {
+		return nil, fmt.Errorf("error initializing app: %v", err)
+	}
+
+	fcmClient, err := app.Messaging(context.Background())
+	if err != nil {
+		return nil, fmt.Errorf("error initializing FCM client: %v", err)
+	}
+
+	return fcmClient, nil
+}
+
+// ======================================================
+// Fungsi Kirim Notifikasi FCM
+// ======================================================
+func sendNotificationToPhone(phoneNumber string, title string, body string) {
+	// Mendapatkan token FCM untuk nomor HP yang diberikan
+	userToken := getFCMTokenByPhone(phoneNumber)
+
+	if userToken == "" {
+		log.Println("No FCM token found for phone number:", phoneNumber)
+		return
+	}
+
+	// Membuat pesan FCM
+	message := &messaging.Message{
+		Token: userToken,
+		Notification: &messaging.Notification{
+			Title: title,
+			Body:  body,
+		},
+	}
+
+	// Kirim notifikasi
+	fcmClient, err := initializeFirebase()
+	if err != nil {
+		log.Println("Error initializing FCM:", err)
+		return
+	}
+
+	_, err = fcmClient.Send(context.Background(), message)
+	if err != nil {
+		log.Println("Error sending FCM notification:", err)
+		return
+	}
+
+	log.Println("FCM notification sent to:", phoneNumber)
+}
+
+// ======================================================
+// UPDATE BOOKING PAJAK + KIRIM NOTIFIKASI KE USER TERKAIT
+// ======================================================
+func UpdateBooking(c *gin.Context) {
+	id := c.Param("id")
+
+	var booking models.PajakKendaraanBermotor
+	if err := config.DB.First(&booking, id).Error; err != nil {
+		utils.Error(c, "Data booking tidak ditemukan")
+		return
+	}
+
+	var input struct {
+		Tanggal      string `json:"tanggal"`
+		Tim          string `json:"tim"`
+		CatatanAdmin string `json:"catatan_admin"`
+		Harga        string `json:"harga"`
+		Status       string `json:"status"`
+	}
+
+	if err := c.ShouldBindJSON(&input); err != nil {
+		utils.Error(c, "Input tidak valid: "+err.Error())
+		return
+	}
+
+	// Parsing tanggal
+	if input.Tanggal != "" {
+		parsedDate, err := time.Parse("2006-01-02", input.Tanggal)
+		if err != nil {
+			utils.Error(c, "Format tanggal harus YYYY-MM-DD")
+			return
+		}
+		booking.Tanggal = parsedDate
+	}
+
+	// Update data lainnya
+	if input.Tim != "" {
+		booking.Tim = input.Tim
+	}
+	if input.CatatanAdmin != "" {
+		booking.CatatanAdmin = input.CatatanAdmin
+	}
+	if input.Harga != "" {
+		booking.Harga = input.Harga
+	}
+	if input.Status != "" {
+		booking.Status = input.Status
+	}
+
+	// Menyimpan perubahan
+	if err := config.DB.Save(&booking).Error; err != nil {
+		utils.Error(c, "Gagal menyimpan perubahan: "+err.Error())
+		return
+	}
+
+	// Kirim notifikasi
+	title := "Status Diperbarui"
+	body := fmt.Sprintf("Pesanan atas nama %s kini berstatus: %s", booking.Nama, booking.Status)
+	sendNotificationToPhone(booking.NomorHP, title, body)
+
+	utils.Success(c, gin.H{
+		"message": "Booking berhasil diperbarui dan notifikasi dikirim (jika token terdaftar)",
+		"data":    booking,
+	})
+}
+
+// ======================================================
+// UPDATE BOOKING BALIK NAMA + KIRIM NOTIFIKASI KE USER TERKAIT
+// ======================================================
+func UpdateBalikNama(c *gin.Context) {
+	id := c.Param("id")
+
+	var booking models.BalikNamaKendaraan
+	if err := config.DB.First(&booking, id).Error; err != nil {
+		utils.Error(c, "Data booking tidak ditemukan")
+		return
+	}
+
+	var input struct {
+		Tanggal      string `json:"tanggal"`
+		Tim          string `json:"tim"`
+		CatatanAdmin string `json:"catatan_admin"`
+		Harga        string `json:"harga"`
+		Status       string `json:"status"`
+	}
+
+	if err := c.ShouldBindJSON(&input); err != nil {
+		utils.Error(c, "Input tidak valid: "+err.Error())
+		return
+	}
+
+	// Parsing tanggal
+	if input.Tanggal != "" {
+		parsedDate, err := time.Parse("2006-01-02", input.Tanggal)
+		if err != nil {
+			utils.Error(c, "Format tanggal harus YYYY-MM-DD")
+			return
+		}
+		booking.Tanggal = parsedDate
+	}
+
+	// Update data lainnya
+	if input.Tim != "" {
+		booking.Tim = input.Tim
+	}
+	if input.CatatanAdmin != "" {
+		booking.CatatanAdmin = input.CatatanAdmin
+	}
+	if input.Harga != "" {
+		booking.Harga = input.Harga
+	}
+	if input.Status != "" {
+		booking.Status = input.Status
+	}
+
+	// Menyimpan perubahan
+	if err := config.DB.Save(&booking).Error; err != nil {
+		utils.Error(c, "Gagal menyimpan perubahan: "+err.Error())
+		return
+	}
+
+	// Kirim notifikasi
+	title := "Status Diperbarui"
+	body := fmt.Sprintf("Pesanan atas nama %s kini berstatus: %s", booking.Nama, booking.Status)
+	sendNotificationToPhone(booking.NomorHP, title, body)
+
+	utils.Success(c, gin.H{
+		"message": "Booking berhasil diperbarui dan notifikasi dikirim (jika token terdaftar)",
+		"data":    booking,
+	})
+}
+
+// ======================================================
+// GET SEMUA DATA BALIK NAMA
+// ======================================================
+func GetAllBalikNama(c *gin.Context) {
+	var bookings []models.BalikNamaKendaraan
+
+	if err := config.DB.Find(&bookings).Error; err != nil {
+		utils.Error(c, "Gagal mengambil data dari database: "+err.Error())
+		return
+	}
+
+	results := []map[string]interface{}{}
+	for _, b := range bookings {
+		tanggalDisplay := "-"
+		if !b.Tanggal.IsZero() {
+			tanggalDisplay = b.Tanggal.Format("2006-01-02")
+		}
+
+		results = append(results, map[string]interface{}{
+			"id":              b.ID,
+			"nama":            b.Nama,
+			"nomor_kendaraan": b.NomorKendaraan,
+			"nomor_hp":        b.NomorHP,
+			"tanggal":         tanggalDisplay,
+			"kampung":         b.Kampung,
+			"catatan":         b.Catatan,
+			"status":          b.Status,
+			"tim":             b.Tim,
+			"catatan_admin":   b.CatatanAdmin,
+			"harga":           b.Harga,
+			"jenis_layanan":   "Balik Nama Kendaraan",
+		})
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"status": "success",
+		"data":   results,
+	})
+}
+
+// ======================================================
+// GET SEMUA DATA PAJAK
+// ======================================================
+func GetAllBookings(c *gin.Context) {
+	var bookings []models.PajakKendaraanBermotor
+
+	if err := config.DB.Find(&bookings).Error; err != nil {
+		utils.Error(c, "Gagal mengambil data dari database: "+err.Error())
+		return
+	}
+
+	results := []map[string]interface{}{}
+	for _, b := range bookings {
+		tanggalDisplay := "-"
+		if !b.Tanggal.IsZero() {
+			tanggalDisplay = b.Tanggal.Format("2006-01-02")
+		}
+
+		results = append(results, map[string]interface{}{
+			"id":              b.ID,
+			"nama":            b.Nama,
+			"nomor_kendaraan": b.NomorKendaraan,
+			"nomor_hp":        b.NomorHP,
+			"tanggal":         tanggalDisplay,
+			"kampung":         b.Kampung,
+			"catatan":         b.Catatan,
+			"status":          b.Status,
+			"tim":             b.Tim,
+			"catatan_admin":   b.CatatanAdmin,
+			"harga":           b.Harga,
+			"jenis_layanan":   "Pajak Kendaraan Bermotor",
+		})
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"status": "success",
+		"data":   results,
+	})
+}
+
+// ======================================================
+// UPDATE BOOKING MUTASI + KIRIM NOTIFIKASI KE USER TERKAIT
+// ======================================================
+func UpdateMutasi(c *gin.Context) {
+	id := c.Param("id")
+
+	var booking models.MutasiKendaraan
+	if err := config.DB.First(&booking, id).Error; err != nil {
+		utils.Error(c, "Data booking tidak ditemukan")
+		return
+	}
+
+	var input struct {
+		Tanggal      string `json:"tanggal"`
+		Tim          string `json:"tim"`
+		CatatanAdmin string `json:"catatan_admin"`
+		Harga        string `json:"harga"`
+		Status       string `json:"status"`
+	}
+
+	if err := c.ShouldBindJSON(&input); err != nil {
+		utils.Error(c, "Input tidak valid: "+err.Error())
+		return
+	}
+
+	// Parsing tanggal
+	if input.Tanggal != "" {
+		parsedDate, err := time.Parse("2006-01-02", input.Tanggal)
+		if err != nil {
+			utils.Error(c, "Format tanggal harus YYYY-MM-DD")
+			return
+		}
+		booking.Tanggal = parsedDate
+	}
+
+	// Update data lainnya
+	if input.Tim != "" {
+		booking.Tim = input.Tim
+	}
+	if input.CatatanAdmin != "" {
+		booking.CatatanAdmin = input.CatatanAdmin
+	}
+	if input.Harga != "" {
+		booking.Harga = input.Harga
+	}
+	if input.Status != "" {
+		booking.Status = input.Status
+	}
+
+	// Menyimpan perubahan
+	if err := config.DB.Save(&booking).Error; err != nil {
+		utils.Error(c, "Gagal menyimpan perubahan: "+err.Error())
+		return
+	}
+
+	// Kirim notifikasi
+	title := "Status Diperbarui"
+	body := fmt.Sprintf("Pesanan atas nama %s kini berstatus: %s", booking.Nama, booking.Status)
+	sendNotificationToPhone(booking.NomorHP, title, body)
+
+	utils.Success(c, gin.H{
+		"message": "Booking berhasil diperbarui dan notifikasi dikirim (jika token terdaftar)",
+		"data":    booking,
+	})
+}
+
+// ======================================================
+// GET SEMUA DATA MUTASI
+// ======================================================
+func GetAllMutasi(c *gin.Context) {
+	var bookings []models.MutasiKendaraan
+
+	// Ambil semua data dari tabel Mutasi Kendaraan
+	if err := config.DB.Find(&bookings).Error; err != nil {
+		utils.Error(c, "Gagal mengambil data dari database: "+err.Error())
+		return
+	}
+
+	// Format data untuk dikirim ke frontend
+	results := []map[string]interface{}{}
+	for _, b := range bookings {
+		tanggalDisplay := "-"
+		if !b.Tanggal.IsZero() {
+			tanggalDisplay = b.Tanggal.Format("2006-01-02")
+		}
+
+		results = append(results, map[string]interface{}{
+			"id":              b.ID,
+			"nama":            b.Nama,
+			"nomor_kendaraan": b.NomorKendaraan,
+			"nomor_hp":        b.NomorHP,
+			"tanggal":         tanggalDisplay,
+			"kampung":         b.Kampung,
+			"catatan":         b.Catatan,
+			"status":          b.Status,
+			"tim":             b.Tim,
+			"catatan_admin":   b.CatatanAdmin,
+			"harga":           b.Harga,
+			"jenis_layanan":   "Mutasi Kendaraan",
+		})
+	}
+
+	// Kirim response JSON
+	c.JSON(200, gin.H{
+		"status": "success",
+		"data":   results,
+	})
+}
+
+// ======================================================
+// CEK UPDATE UNTUK NOTIFIKASI (MASIH ADA - POLLING OPTIONAL)
+// ======================================================
+func CheckUpdate(c *gin.Context) {
+	var pajak models.PajakKendaraanBermotor
+	var balik models.BalikNamaKendaraan
+	var mutasi models.MutasiKendaraan
+
+	// Ambil data terbaru dari masing-masing layanan
+	config.DB.Order("updated_at desc").First(&pajak)
+	config.DB.Order("updated_at desc").First(&balik)
+	config.DB.Order("updated_at desc").First(&mutasi)
+
+	latestTime := time.Time{}
+	latestType := ""
+	var latestData interface{}
+
+	// Tentukan data terbaru berdasarkan waktu update
+	if pajak.UpdatedAt.After(latestTime) {
+		latestTime = pajak.UpdatedAt
+		latestType = "Pajak Kendaraan Bermotor"
+		latestData = pajak
+	}
+	if balik.UpdatedAt.After(latestTime) {
+		latestTime = balik.UpdatedAt
+		latestType = "Balik Nama Kendaraan"
+		latestData = balik
+	}
+	if mutasi.UpdatedAt.After(latestTime) {
+		latestTime = mutasi.UpdatedAt
+		latestType = "Mutasi Kendaraan"
+		latestData = mutasi
+	}
+
+	// Jika tidak ada perubahan terbaru
+	if latestType == "" {
+		c.JSON(http.StatusOK, gin.H{
+			"update":  false,
+			"message": "Belum ada data yang diperbarui.",
+		})
+		return
+	}
+
+	// Jika ada update terbaru, kirimkan pesan
+	c.JSON(http.StatusOK, gin.H{
+		"update":        true,
+		"message":       "Ada update Status nih, apakah ini punya kamu?",
+		"jenis_layanan": latestType,
+		"data":          latestData,
+	})
+}
+
