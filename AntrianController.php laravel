@@ -1,0 +1,144 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Http;
+
+class AntrianController extends Controller
+{
+
+    /**
+     * 🔹 Tampilkan semua antrian dari backend 
+     */
+    public function index()
+    {
+        try {
+            $response = Http::timeout(5)->get(env('BACKEND_API_URL') . "/booking/all");
+
+            if ($response->successful()) {
+                $data = $response->json()['data'] ?? [];
+            } else {
+                \Log::error('❌ Gagal ambil data antrian', [
+                    'status' => $response->status(),
+                    'body'   => $response->body(),
+                ]);
+                $data = [];
+            }
+        } catch (\Exception $e) {
+            \Log::error('🔥 Gagal koneksi ke backend:', ['error' => $e->getMessage()]);
+            $data = [];
+        }
+
+        return view('antrian', compact('data'));
+    }
+
+    /**
+     * 🔹 Menampilkan detail satu antrian dari data /booking/all
+     * (karena backend tidak punya endpoint GET /booking/:id)
+     */
+    public function show($id)
+    {
+        try {
+            // Ambil semua data
+            $response = Http::timeout(5)->get(env('BACKEND_API_URL') . "/booking/all");
+
+            if ($response->successful()) {
+                $allData = $response->json()['data'] ?? [];
+
+                // 🔍 Filter berdasarkan ID
+                $data = collect($allData)->firstWhere('id', (int) $id);
+            } else {
+                \Log::error('❌ Gagal ambil data semua antrian', [
+                    'status' => $response->status(),
+                    'body'   => $response->body(),
+                ]);
+                $data = null;
+            }
+        } catch (\Exception $e) {
+            \Log::error('🔥 Exception ambil detail booking:', [
+                'id'    => $id,
+                'error' => $e->getMessage(),
+            ]);
+            $data = null;
+        }
+
+        return view('antrian-lihat', compact('data'));
+    }
+
+    /**
+     * 🔹 Update data booking (PUT /booking/update/:id)
+     */
+    public function update(Request $request, $id)
+    {
+        try {
+            // Payload untuk dikirim ke backend Go
+            $payload = [
+                'tanggal'        => $request->input('tanggal'),
+                'tim'            => $request->input('tim'),
+                'catatan_admin'  => $request->input('catatan'),
+                'harga'          => $request->input('total'),
+                'status'         => $request->input('status'),
+            ];
+
+            \Log::info('📦 Payload dikirim ke backend:', $payload);
+
+            // Mengirim update ke backend Go
+            $response = Http::timeout(5)
+                ->withHeaders([
+                    'Accept'       => 'application/json',
+                    'Content-Type' => 'application/json',
+                ])
+                ->asJson()
+                ->put(env('BACKEND_API_URL') . "/booking/update/{$id}", $payload);
+
+            if ($response->successful()) {
+                // Kirim notifikasi ke backend Go
+                Http::post(env('BACKEND_GO_API_URL') . "/send-notification", [
+                    'status' => $request->input('status'),
+                    'vehicle_number' => $request->input('vehicle_number'),
+                ]);
+
+                \Log::info('✅ Update sukses:', $response->json());
+                return redirect()->route('antrian')->with('success', '✅ Data berhasil diperbarui di server backend.');
+            } else {
+                \Log::error('⚠️ Gagal update data backend', [
+                    'status' => $response->status(),
+                    'body'   => $response->body(),
+                ]);
+                return redirect()->back()->with('error', '⚠️ Gagal memperbarui data ke backend.');
+            }
+        } catch (\Exception $e) {
+            \Log::error('🔥 Exception saat update data:', [
+                'id'    => $id,
+                'error' => $e->getMessage(),
+            ]);
+            return redirect()->back()->with('error', 'Terjadi kesalahan: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * 🔹 Debug: lihat langsung data dari backend
+     */
+    public function fetchBackendData()
+    {
+        try {
+            $response = Http::timeout(5)->get(env('BACKEND_API_URL') . "/booking/all");
+
+            if ($response->successful()) {
+                return response()->json($response->json());
+            } else {
+                return response()->json([
+                    'error'  => 'Gagal mengambil data dari backend.',
+                    'status' => $response->status(),
+                    'body'   => $response->body(),
+                ], $response->status());
+            }
+        } catch (\Exception $e) {
+            return response()->json([
+                'error'   => 'Gagal koneksi ke backend.',
+                'message' => $e->getMessage(),
+            ], 500);
+        }
+    }
+}
