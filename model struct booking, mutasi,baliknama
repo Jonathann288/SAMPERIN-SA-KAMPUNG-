@@ -1,69 +1,121 @@
 package models
 
-import "gorm.io/gorm"
+import (
+	"time"
+
+	"gorm.io/gorm"
+)
+
+// PajakKendaraanBermotor model
+type PajakKendaraanBermotor struct {
+	ID             uint      `gorm:"primaryKey;autoIncrement" json:"id"`
+	Nama           string    `gorm:"type:varchar(255)" json:"nama"`
+	NomorKendaraan string    `gorm:"type:varchar(50)" json:"nomor_kendaraan"`
+	NomorHP        string    `gorm:"type:varchar(20)" json:"nomor_hp"`
+	Tanggal        time.Time `gorm:"type:date" json:"tanggal"`
+	Kampung        string    `gorm:"type:varchar(255)" json:"kampung"`
+	Catatan        string    `gorm:"type:text" json:"catatan"`
+	Status         string    `gorm:"type:varchar(50)" json:"status"`
+	Tim            string    `gorm:"type:varchar(100)" json:"tim"`
+	CatatanAdmin   string    `gorm:"type:text" json:"catatan_admin"`
+	Harga          string    `gorm:"type:varchar(50)" json:"harga"`
+	CreatedAt      time.Time `gorm:"autoCreateTime" json:"created_at"`
+	UpdatedAt      time.Time `gorm:"autoUpdateTime" json:"updated_at"`
+}
+
+// BalikNamaKendaraan model
+type BalikNamaKendaraan struct {
+	ID             uint      `gorm:"primaryKey;autoIncrement" json:"id"`
+	Nama           string    `gorm:"type:varchar(255)" json:"nama"`
+	NomorKendaraan string    `gorm:"type:varchar(50)" json:"nomor_kendaraan"`
+	NomorHP        string    `gorm:"type:varchar(20)" json:"nomor_hp"`
+	Tanggal        time.Time `gorm:"type:date" json:"tanggal"`
+	Kampung        string    `gorm:"type:varchar(255)" json:"kampung"`
+	Catatan        string    `gorm:"type:text" json:"catatan"`
+	Status         string    `gorm:"type:varchar(50)" json:"status"`
+	Tim            string    `gorm:"type:varchar(100)" json:"tim"`
+	CatatanAdmin   string    `gorm:"type:text" json:"catatan_admin"`
+	Harga          string    `gorm:"type:varchar(50)" json:"harga"`
+	CreatedAt      time.Time `gorm:"autoCreateTime" json:"created_at"`
+	UpdatedAt      time.Time `gorm:"autoUpdateTime" json:"updated_at"`
+}
+
+// MutasiKendaraan model
+type MutasiKendaraan struct {
+	ID             uint      `gorm:"primaryKey;autoIncrement" json:"id"`
+	Nama           string    `gorm:"type:varchar(255)" json:"nama"`
+	NomorKendaraan string    `gorm:"type:varchar(50)" json:"nomor_kendaraan"`
+	NomorHP        string    `gorm:"type:varchar(20)" json:"nomor_hp"`
+	Tanggal        time.Time `gorm:"type:date" json:"tanggal"`
+	Kampung        string    `gorm:"type:varchar(255)" json:"kampung"`
+	Catatan        string    `gorm:"type:text" json:"catatan"`
+	Status         string    `gorm:"type:varchar(50)" json:"status"`
+	Tim            string    `gorm:"type:varchar(100)" json:"tim"`
+	CatatanAdmin   string    `gorm:"type:text" json:"catatan_admin"`
+	Harga          string    `gorm:"type:varchar(50)" json:"harga"`
+	CreatedAt      time.Time `gorm:"autoCreateTime" json:"created_at"`
+	UpdatedAt      time.Time `gorm:"autoUpdateTime" json:"updated_at"`
+}
 
 type Booking struct {
-    ID            uint           `json:"id" gorm:"primaryKey"`
-    CreatedAt     string         `json:"created_at"`
-    UpdatedAt     string         `json:"updated_at"`
-    DeletedAt     gorm.DeletedAt `json:"deleted_at" gorm:"index"`
-
-    Nama          string `json:"nama"`
-    NomorKendaraan string `json:"nomor_kendaraan"`
-    NomorHP       string `json:"nomor_hp"`
-    Tanggal       string `json:"tanggal"`
-    Kampung       string `json:"kampung"`
-    Catatan       string `json:"catatan"`
-    Status        string `json:"status"`
-    Tim           string `json:"tim"`
-    CatatanAdmin  string `json:"catatan_admin"`
-    Harga         string `json:"harga"`
+	ID             uint           `json:"id" gorm:"primaryKey"`
+	Nama           string         `json:"nama"`
+	NomorKendaraan string         `json:"nomor_kendaraan"`
+	NomorHP        string         `json:"nomor_hp"`
+	JenisLayanan   string         `json:"jenis_layanan"`
+	Tanggal        time.Time      `json:"tanggal"`
+	Status         string         `json:"status"`
+	CatatanAdmin   string         `json:"catatan_admin"`
+	Tim            string         `json:"tim"`
+	Harga          string         `gorm:"type:varchar(50)" json:"harga"`
+	CreatedAt      time.Time      `json:"created_at"`
+	UpdatedAt      time.Time      `json:"updated_at"`
+	DeletedAt      gorm.DeletedAt `json:"-" gorm:"index"`
 }
 
-
-
-package models
-
-import "gorm.io/gorm"
-
-type Mutasi struct {
-    ID            uint           `json:"id" gorm:"primaryKey"`
-    CreatedAt     string         `json:"created_at"`
-    UpdatedAt     string         `json:"updated_at"`
-    DeletedAt     gorm.DeletedAt `json:"deleted_at" gorm:"index"`
-
-    Nama          string `json:"nama"`
-    NomorKendaraan string `json:"nomor_kendaraan"`
-    NomorHP       string `json:"nomor_hp"`
-    Tanggal       string `json:"tanggal"`
-    Kampung       string `json:"kampung"`
-    Catatan       string `json:"catatan"`
-    Status        string `json:"status"`
-    Tim           string `json:"tim"`
-    CatatanAdmin  string `json:"catatan_admin"`
-    Harga         string `json:"harga"`
+type DashboardStats struct {
+	TotalKendaraan  int `json:"total_kendaraan"`
+	TotalPembayaran int `json:"total_pembayaran"`
+	TotalPengguna   int `json:"total_pengguna"`
 }
-
-
-
-package models
-
-import "gorm.io/gorm"
 
 type BalikNama struct {
-    ID            uint           `json:"id" gorm:"primaryKey"`
-    CreatedAt     string         `json:"created_at"`
-    UpdatedAt     string         `json:"updated_at"`
-    DeletedAt     gorm.DeletedAt `json:"deleted_at" gorm:"index"`
+	ID             uint   `json:"id"`
+	NomorKendaraan string `json:"nomor_kendaraan"`
+	PemilikBaru    string `json:"pemilik_baru"`
+	NomorHP        string `json:"nomor_hp"`
+	Status         string `json:"status"`
+}
 
-    Nama          string `json:"nama"`
-    NomorKendaraan string `json:"nomor_kendaraan"`
-    NomorHP       string `json:"nomor_hp"`
-    Tanggal       string `json:"tanggal"`
-    Kampung       string `json:"kampung"`
-    Catatan       string `json:"catatan"`
-    Status        string `json:"status"`
-    Tim           string `json:"tim"`
-    CatatanAdmin  string `json:"catatan_admin"`
-    Harga         string `json:"harga"`
+type Mutasi struct {
+	ID             uint   `json:"id"`
+	NomorKendaraan string `json:"nomor_kendaraan"`
+	Nama           string `json:"nama"`
+	NomorHP        string `json:"nomor_hp"`
+	Status         string `json:"status"`
+}
+
+type BookingDashboard struct {
+	ID             uint      `json:"id"`
+	NomorKendaraan string    `json:"nomor_kendaraan"`
+	Nama           string    `json:"nama"`
+	NomorHP        string    `json:"nomor_hp"`
+	Status         string    `json:"status"`
+	Tanggal        time.Time `json:"tanggal"`
+}
+
+func (PajakKendaraanBermotor) TableName() string {
+	return "pajak_kendaraan_bermotor"
+}
+
+func (BalikNamaKendaraan) TableName() string {
+	return "balik_nama_kendaraan"
+}
+
+func (MutasiKendaraan) TableName() string {
+	return "mutasi_kendaraan"
+}
+
+func (Booking) TableName() string {
+	return "bookings"
 }
