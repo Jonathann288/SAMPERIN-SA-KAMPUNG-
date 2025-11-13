@@ -1,0 +1,762 @@
+ini controller:
+
+// ====================================
+// Update Pajak Kendaraan
+// ====================================
+func UpdateBooking(c *gin.Context) {
+	id := c.Param("id")
+
+	var booking models.PajakKendaraanBermotor
+	if err := config.DB.First(&booking, id).Error; err != nil {
+		utils.Error(c, "Data booking tidak ditemukan")
+		return
+	}
+
+	var input struct {
+		Tanggal      string `json:"tanggal"`
+		Tim          string `json:"tim"`
+		CatatanAdmin string `json:"catatan_admin"`
+		Harga        string `json:"harga"`
+		Status       string `json:"status"`
+	}
+
+	if err := c.ShouldBindJSON(&input); err != nil {
+		utils.Error(c, "Input tidak valid: "+err.Error())
+		return
+	}
+
+	// Parsing tanggal
+	if input.Tanggal != "" {
+		parsedDate, err := time.Parse("2006-01-02", input.Tanggal)
+		if err != nil {
+			utils.Error(c, "Format tanggal harus YYYY-MM-DD")
+			return
+		}
+		booking.Tanggal = parsedDate
+	}
+
+	// Update data lainnya
+	if input.Tim != "" {
+		booking.Tim = input.Tim
+	}
+	if input.CatatanAdmin != "" {
+		booking.CatatanAdmin = input.CatatanAdmin
+	}
+	if input.Harga != "" {
+		booking.Harga = input.Harga
+	}
+	if input.Status != "" {
+		booking.Status = input.Status
+	}
+
+	if err := config.DB.Save(&booking).Error; err != nil {
+		utils.Error(c, "Gagal menyimpan perubahan: "+err.Error())
+		return
+	}
+
+	title := "Status Diperbarui"
+	body := fmt.Sprintf("Pesanan atas nama %s kini berstatus: %s", booking.Nama, booking.Status)
+	sendNotificationToPhone(booking.NomorHP, title, body)
+
+	utils.Success(c, gin.H{
+		"message": "Booking berhasil diperbarui dan notifikasi dikirim (jika token terdaftar)",
+		"data":    booking,
+	})
+}
+
+// ====================================
+// Update Balik Nama Kendaraan
+// ====================================
+func UpdateBalikNama(c *gin.Context) {
+	id := c.Param("id")
+
+	var booking models.BalikNamaKendaraan
+	if err := config.DB.First(&booking, id).Error; err != nil {
+		utils.Error(c, "Data balik nama tidak ditemukan")
+		return
+	}
+
+	var input struct {
+		Tanggal      string `json:"tanggal"`
+		Tim          string `json:"tim"`
+		CatatanAdmin string `json:"catatan_admin"`
+		Harga        string `json:"harga"`
+		Status       string `json:"status"`
+	}
+
+	if err := c.ShouldBindJSON(&input); err != nil {
+		utils.Error(c, "Input tidak valid: "+err.Error())
+		return
+	}
+
+	if input.Tanggal != "" {
+		parsedDate, err := time.Parse("2006-01-02", input.Tanggal)
+		if err != nil {
+			utils.Error(c, "Format tanggal harus YYYY-MM-DD")
+			return
+		}
+		booking.Tanggal = parsedDate
+	}
+
+	if input.Tim != "" {
+		booking.Tim = input.Tim
+	}
+	if input.CatatanAdmin != "" {
+		booking.CatatanAdmin = input.CatatanAdmin
+	}
+	if input.Harga != "" {
+		booking.Harga = input.Harga
+	}
+	if input.Status != "" {
+		booking.Status = input.Status
+	}
+
+	if err := config.DB.Save(&booking).Error; err != nil {
+		utils.Error(c, "Gagal menyimpan perubahan: "+err.Error())
+		return
+	}
+
+	title := "Status Diperbarui"
+	body := fmt.Sprintf("Permohonan balik nama atas nama %s kini berstatus: %s", booking.Nama, booking.Status)
+	sendNotificationToPhone(booking.NomorHP, title, body)
+
+	utils.Success(c, gin.H{
+		"message": "Data balik nama berhasil diperbarui dan notifikasi dikirim",
+		"data":    booking,
+	})
+}
+
+// ======================================================
+// GET SEMUA DATA BALIK NAMA
+// ======================================================
+func GetAllBalikNama(c *gin.Context) {
+	var bookings []models.BalikNamaKendaraan
+
+	if err := config.DB.Find(&bookings).Error; err != nil {
+		utils.Error(c, "Gagal mengambil data dari database: "+err.Error())
+		return
+	}
+
+	results := []map[string]interface{}{}
+	for _, b := range bookings {
+		tanggalDisplay := "-"
+		if !b.Tanggal.IsZero() {
+			tanggalDisplay = b.Tanggal.Format("2006-01-02")
+		}
+
+		results = append(results, map[string]interface{}{
+			"id":              b.ID,
+			"nama":            b.Nama,
+			"nomor_kendaraan": b.NomorKendaraan,
+			"nomor_hp":        b.NomorHP,
+			"tanggal":         tanggalDisplay,
+			"kampung":         b.Kampung,
+			"catatan":         b.Catatan,
+			"status":          b.Status,
+			"tim":             b.Tim,
+			"catatan_admin":   b.CatatanAdmin,
+			"harga":           b.Harga,
+			"jenis_layanan":   "Balik Nama Kendaraan",
+		})
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"status": "success",
+		"data":   results,
+	})
+}
+
+// ======================================================
+// GET SEMUA DATA PAJAK
+// ======================================================
+func GetAllBookings(c *gin.Context) {
+	var bookings []models.PajakKendaraanBermotor
+
+	if err := config.DB.Find(&bookings).Error; err != nil {
+		utils.Error(c, "Gagal mengambil data dari database: "+err.Error())
+		return
+	}
+
+	results := []map[string]interface{}{}
+	for _, b := range bookings {
+		tanggalDisplay := "-"
+		if !b.Tanggal.IsZero() {
+			tanggalDisplay = b.Tanggal.Format("2006-01-02")
+		}
+
+		results = append(results, map[string]interface{}{
+			"id":              b.ID,
+			"nama":            b.Nama,
+			"nomor_kendaraan": b.NomorKendaraan,
+			"nomor_hp":        b.NomorHP,
+			"tanggal":         tanggalDisplay,
+			"kampung":         b.Kampung,
+			"catatan":         b.Catatan,
+			"status":          b.Status,
+			"tim":             b.Tim,
+			"catatan_admin":   b.CatatanAdmin,
+			"harga":           b.Harga,
+			"jenis_layanan":   "Pajak Kendaraan Bermotor",
+		})
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"status": "success",
+		"data":   results,
+	})
+}
+
+// ====================================
+// Update Mutasi Kendaraan
+// ====================================
+func UpdateMutasi(c *gin.Context) {
+	id := c.Param("id")
+
+	var booking models.MutasiKendaraan
+	if err := config.DB.First(&booking, id).Error; err != nil {
+		utils.Error(c, "Data mutasi tidak ditemukan")
+		return
+	}
+
+	var input struct {
+		Tanggal      string `json:"tanggal"`
+		Tim          string `json:"tim"`
+		CatatanAdmin string `json:"catatan_admin"`
+		Harga        string `json:"harga"`
+		Status       string `json:"status"`
+	}
+
+	if err := c.ShouldBindJSON(&input); err != nil {
+		utils.Error(c, "Input tidak valid: "+err.Error())
+		return
+	}
+
+	if input.Tanggal != "" {
+		parsedDate, err := time.Parse("2006-01-02", input.Tanggal)
+		if err != nil {
+			utils.Error(c, "Format tanggal harus YYYY-MM-DD")
+			return
+		}
+		booking.Tanggal = parsedDate
+	}
+
+	if input.Tim != "" {
+		booking.Tim = input.Tim
+	}
+	if input.CatatanAdmin != "" {
+		booking.CatatanAdmin = input.CatatanAdmin
+	}
+	if input.Harga != "" {
+		booking.Harga = input.Harga
+	}
+	if input.Status != "" {
+		booking.Status = input.Status
+	}
+
+	if err := config.DB.Save(&booking).Error; err != nil {
+		utils.Error(c, "Gagal menyimpan perubahan: "+err.Error())
+		return
+	}
+
+	title := "Status Diperbarui"
+	body := fmt.Sprintf("Permohonan mutasi atas nama %s kini berstatus: %s", booking.Nama, booking.Status)
+	sendNotificationToPhone(booking.NomorHP, title, body)
+
+	utils.Success(c, gin.H{
+		"message": "Data mutasi berhasil diperbarui dan notifikasi dikirim",
+		"data":    booking,
+	})
+}
+
+// ======================================================
+// GET SEMUA DATA MUTASI
+// ======================================================
+func GetAllMutasi(c *gin.Context) {
+	var bookings []models.MutasiKendaraan
+
+	// Ambil semua data dari tabel Mutasi Kendaraan
+	if err := config.DB.Find(&bookings).Error; err != nil {
+		utils.Error(c, "Gagal mengambil data dari database: "+err.Error())
+		return
+	}
+
+	// Format data untuk dikirim ke frontend
+	results := []map[string]interface{}{}
+	for _, b := range bookings {
+		tanggalDisplay := "-"
+		if !b.Tanggal.IsZero() {
+			tanggalDisplay = b.Tanggal.Format("2006-01-02")
+		}
+
+		results = append(results, map[string]interface{}{
+			"id":              b.ID,
+			"nama":            b.Nama,
+			"nomor_kendaraan": b.NomorKendaraan,
+			"nomor_hp":        b.NomorHP,
+			"tanggal":         tanggalDisplay,
+			"kampung":         b.Kampung,
+			"catatan":         b.Catatan,
+			"status":          b.Status,
+			"tim":             b.Tim,
+			"catatan_admin":   b.CatatanAdmin,
+			"harga":           b.Harga,
+			"jenis_layanan":   "Mutasi Kendaraan",
+		})
+	}
+
+	// Kirim response JSON
+	c.JSON(200, gin.H{
+		"status": "success",
+		"data":   results,
+	})
+}
+
+// ======================================================
+// CEK UPDATE UNTUK NOTIFIKASI (MASIH ADA - POLLING OPTIONAL)
+// ======================================================
+func CheckUpdate(c *gin.Context) {
+	var pajak models.PajakKendaraanBermotor
+	var balik models.BalikNamaKendaraan
+	var mutasi models.MutasiKendaraan
+
+	// Ambil data terbaru dari masing-masing layanan
+	config.DB.Order("updated_at desc").First(&pajak)
+	config.DB.Order("updated_at desc").First(&balik)
+	config.DB.Order("updated_at desc").First(&mutasi)
+
+	latestTime := time.Time{}
+	latestType := ""
+	var latestData interface{}
+
+	// Tentukan data terbaru berdasarkan waktu update
+	if pajak.UpdatedAt.After(latestTime) {
+		latestTime = pajak.UpdatedAt
+		latestType = "Pajak Kendaraan Bermotor"
+		latestData = pajak
+	}
+	if balik.UpdatedAt.After(latestTime) {
+		latestTime = balik.UpdatedAt
+		latestType = "Balik Nama Kendaraan"
+		latestData = balik
+	}
+	if mutasi.UpdatedAt.After(latestTime) {
+		latestTime = mutasi.UpdatedAt
+		latestType = "Mutasi Kendaraan"
+		latestData = mutasi
+	}
+
+	// Jika tidak ada perubahan terbaru
+	if latestType == "" {
+		c.JSON(http.StatusOK, gin.H{
+			"update":  false,
+			"message": "Belum ada data yang diperbarui.",
+		})
+		return
+	}
+
+	// Jika ada update terbaru, kirimkan pesan
+	c.JSON(http.StatusOK, gin.H{
+		"update":        true,
+		"message":       "Ada update Status nih, apakah ini punya kamu?",
+		"jenis_layanan": latestType,
+		"data":          latestData,
+	})
+}
+ini controller notification
+package controllers
+
+import (
+	"net/http"
+	"samsat_backend/config"
+	"samsat_backend/models"
+
+	"github.com/gin-gonic/gin"
+)
+
+// ======================================================
+// CREATE NOTIFICATION
+// ======================================================
+func CreateNotification(c *gin.Context) {
+	var req models.CreateNotificationRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": err.Error()})
+		return
+	}
+
+	notification := models.Notification{
+		NomorHP:        req.NomorHP,
+		Title:          req.Title,
+		Message:        req.Message,
+		Type:           req.Type,
+		ReferenceTable: req.ReferenceTable,
+		ReferenceID:    req.ReferenceID,
+		IsRead:         false,
+	}
+
+	if err := config.DB.Create(&notification).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Gagal menyimpan notifikasi"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data":    notification.ToResponse(),
+	})
+}
+
+// ======================================================
+// GET NOTIFICATIONS BY NOMOR_HP
+// ======================================================
+func GetNotifications(c *gin.Context) {
+	nomorHP := c.Query("nomor_hp")
+	if nomorHP == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "nomor_hp wajib diisi"})
+		return
+	}
+
+	var notifications []models.Notification
+	if err := config.DB.
+		Where("nomor_hp = ?", nomorHP).
+		Order("created_at DESC").
+		Find(&notifications).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Gagal mengambil data"})
+		return
+	}
+
+	var responses []models.NotificationResponse
+	for _, n := range notifications {
+		responses = append(responses, n.ToResponse())
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data":    responses,
+	})
+}
+
+// ======================================================
+// MARK NOTIFICATION AS READ
+// ======================================================
+func MarkNotificationAsRead(c *gin.Context) {
+	var req models.MarkReadRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": err.Error()})
+		return
+	}
+
+	var notif models.Notification
+	if err := config.DB.
+		Where("id = ? AND nomor_hp = ?", req.NotificationID, req.NomorHP).
+		First(&notif).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"success": false, "message": "Notifikasi tidak ditemukan"})
+		return
+	}
+
+	notif.IsRead = true
+	if err := config.DB.Save(&notif).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Gagal memperbarui status baca"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "Notifikasi berhasil ditandai sebagai dibaca",
+	})
+}
+
+// ======================================================
+// DELETE NOTIFICATION
+// ======================================================
+func DeleteNotification(c *gin.Context) {
+	id := c.Param("id")
+
+	if err := config.DB.Delete(&models.Notification{}, id).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Gagal menghapus notifikasi"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "Notifikasi berhasil dihapus",
+	})
+}
+
+
+ini model booking
+
+	package models
+
+	import (
+		"time"
+
+		"gorm.io/gorm"
+	)
+
+	// PajakKendaraanBermotor model
+	type PajakKendaraanBermotor struct {
+		ID             uint      `gorm:"primaryKey;autoIncrement" json:"id"`
+		Nama           string    `gorm:"type:varchar(255)" json:"nama"`
+		NomorKendaraan string    `gorm:"type:varchar(50)" json:"nomor_kendaraan"`
+		NomorHP        string    `gorm:"type:varchar(20)" json:"nomor_hp"`
+		Tanggal        time.Time `gorm:"type:date" json:"tanggal"`
+		Kampung        string    `gorm:"type:varchar(255)" json:"kampung"`
+		Catatan        string    `gorm:"type:text" json:"catatan"`
+		Status         string    `gorm:"type:varchar(50)" json:"status"`
+		Tim            string    `gorm:"type:varchar(100)" json:"tim"`
+		CatatanAdmin   string    `gorm:"type:text" json:"catatan_admin"`
+		Harga          string    `gorm:"type:varchar(50)" json:"harga"`
+		CreatedAt      time.Time `gorm:"autoCreateTime" json:"created_at"`
+		UpdatedAt      time.Time `gorm:"autoUpdateTime" json:"updated_at"`
+	}
+
+	// BalikNamaKendaraan model
+	type BalikNamaKendaraan struct {
+		ID             uint      `gorm:"primaryKey;autoIncrement" json:"id"`
+		Nama           string    `gorm:"type:varchar(255)" json:"nama"`
+		NomorKendaraan string    `gorm:"type:varchar(50)" json:"nomor_kendaraan"`
+		NomorHP        string    `gorm:"type:varchar(20)" json:"nomor_hp"`
+		Tanggal        time.Time `gorm:"type:date" json:"tanggal"`
+		Kampung        string    `gorm:"type:varchar(255)" json:"kampung"`
+		Catatan        string    `gorm:"type:text" json:"catatan"`
+		Status         string    `gorm:"type:varchar(50)" json:"status"`
+		Tim            string    `gorm:"type:varchar(100)" json:"tim"`
+		CatatanAdmin   string    `gorm:"type:text" json:"catatan_admin"`
+		Harga          string    `gorm:"type:varchar(50)" json:"harga"`
+		CreatedAt      time.Time `gorm:"autoCreateTime" json:"created_at"`
+		UpdatedAt      time.Time `gorm:"autoUpdateTime" json:"updated_at"`
+	}
+
+	// MutasiKendaraan model
+	type MutasiKendaraan struct {
+		ID             uint      `gorm:"primaryKey;autoIncrement" json:"id"`
+		Nama           string    `gorm:"type:varchar(255)" json:"nama"`
+		NomorKendaraan string    `gorm:"type:varchar(50)" json:"nomor_kendaraan"`
+		NomorHP        string    `gorm:"type:varchar(20)" json:"nomor_hp"`
+		Tanggal        time.Time `gorm:"type:date" json:"tanggal"`
+		Kampung        string    `gorm:"type:varchar(255)" json:"kampung"`
+		Catatan        string    `gorm:"type:text" json:"catatan"`
+		Status         string    `gorm:"type:varchar(50)" json:"status"`
+		Tim            string    `gorm:"type:varchar(100)" json:"tim"`
+		CatatanAdmin   string    `gorm:"type:text" json:"catatan_admin"`
+		Harga          string    `gorm:"type:varchar(50)" json:"harga"`
+		CreatedAt      time.Time `gorm:"autoCreateTime" json:"created_at"`
+		UpdatedAt      time.Time `gorm:"autoUpdateTime" json:"updated_at"`
+	}
+
+	type Booking struct {
+		ID             uint           `json:"id" gorm:"primaryKey"`
+		Nama           string         `json:"nama"`
+		NomorKendaraan string         `json:"nomor_kendaraan"`
+		NomorHP        string         `json:"nomor_hp"`
+		JenisLayanan   string         `json:"jenis_layanan"`
+		Tanggal        time.Time      `json:"tanggal"`
+		Status         string         `json:"status"`
+		CatatanAdmin   string         `json:"catatan_admin"`
+		Tim            string         `json:"tim"`
+		Harga          string         `gorm:"type:varchar(50)" json:"harga"`
+		CreatedAt      time.Time      `json:"created_at"`
+		UpdatedAt      time.Time      `json:"updated_at"`
+		DeletedAt      gorm.DeletedAt `json:"-" gorm:"index"`
+	}
+
+	type DashboardStats struct {
+		TotalKendaraan  int `json:"total_kendaraan"`
+		TotalPembayaran int `json:"total_pembayaran"`
+		TotalPengguna   int `json:"total_pengguna"`
+	}
+
+	type BalikNama struct {
+		ID             uint   `json:"id"`
+		NomorKendaraan string `json:"nomor_kendaraan"`
+		PemilikBaru    string `json:"pemilik_baru"`
+		NomorHP        string `json:"nomor_hp"`
+		Status         string `json:"status"`
+	}
+
+	type Mutasi struct {
+		ID             uint   `json:"id"`
+		NomorKendaraan string `json:"nomor_kendaraan"`
+		Nama           string `json:"nama"`
+		NomorHP        string `json:"nomor_hp"`
+		Status         string `json:"status"`
+	}
+
+	type BookingDashboard struct {
+		ID             uint      `json:"id"`
+		NomorKendaraan string    `json:"nomor_kendaraan"`
+		Nama           string    `json:"nama"`
+		NomorHP        string    `json:"nomor_hp"`
+		Status         string    `json:"status"`
+		Tanggal        time.Time `json:"tanggal"`
+	}
+
+	func (PajakKendaraanBermotor) TableName() string {
+		return "pajak_kendaraan_bermotor"
+	}
+
+	func (BalikNamaKendaraan) TableName() string {
+		return "balik_nama_kendaraan"
+	}
+
+	func (MutasiKendaraan) TableName() string {
+		return "mutasi_kendaraan"
+	}
+
+	func (Booking) TableName() string {
+		return "bookings"
+	}
+ini model notifikasi:
+package models
+
+import (
+	"time"
+
+	"gorm.io/gorm"
+)
+
+// ======================================================
+// MODEL: Notification
+// ======================================================
+
+type Notification struct {
+	ID             uint      `gorm:"primaryKey;autoIncrement" json:"id"`
+	NomorHP        string    `gorm:"type:varchar(20);not null;index" json:"nomor_hp"`
+	Title          string    `gorm:"type:varchar(255);not null" json:"title"`
+	Message        string    `gorm:"type:text;not null" json:"message"`
+	Type           string    `gorm:"type:varchar(50);not null" json:"type"`
+	ReferenceTable string    `gorm:"type:varchar(100);not null" json:"reference_table"`
+	ReferenceID    uint      `gorm:"not null" json:"reference_id"`
+	IsRead         bool      `gorm:"default:false;index" json:"is_read"`
+	CreatedAt      time.Time `gorm:"autoCreateTime;index" json:"created_at"`
+	UpdatedAt      time.Time `gorm:"autoUpdateTime" json:"updated_at"`
+}
+
+// ======================================================
+// CUSTOM TABLE NAME
+// ======================================================
+
+func (Notification) TableName() string {
+	return "notifications"
+}
+
+// ======================================================
+// REQUEST STRUCT
+// ======================================================
+
+type CreateNotificationRequest struct {
+	NomorHP        string `json:"nomor_hp" binding:"required"`
+	Title          string `json:"title" binding:"required"`
+	Message        string `json:"message" binding:"required"`
+	Type           string `json:"type" binding:"required"`
+	ReferenceTable string `json:"reference_table"`
+	ReferenceID    uint   `json:"reference_id"`
+}
+
+type MarkReadRequest struct {
+	NomorHP        string `json:"nomor_hp" binding:"required"`
+	NotificationID uint   `json:"notification_id" binding:"required"`
+}
+
+// ======================================================
+// RESPONSE STRUCT
+// ======================================================
+
+type NotificationResponse struct {
+	ID             uint      `json:"id"`
+	Title          string    `json:"title"`
+	Message        string    `json:"message"`
+	Type           string    `json:"type"`
+	ReferenceTable string    `json:"reference_table"`
+	ReferenceID    uint      `json:"reference_id"`
+	CreatedAt      time.Time `json:"created_at"`
+}
+
+// ======================================================
+// HELPER METHODS
+// ======================================================
+
+func (n *Notification) ToResponse() NotificationResponse {
+	return NotificationResponse{
+		ID:             n.ID,
+		Title:          n.Title,
+		Message:        n.Message,
+		Type:           n.Type,
+		ReferenceTable: n.ReferenceTable,
+		ReferenceID:    n.ReferenceID,
+		CreatedAt:      n.CreatedAt,
+	}
+}
+
+// Hook sebelum create (opsional)
+func (n *Notification) BeforeCreate(tx *gorm.DB) error {
+	return nil
+}
+
+
+ini route
+package routes
+
+import (
+	"samsat_backend/controllers"
+
+	"github.com/gin-gonic/gin"
+)
+
+func SetupRoutes(r *gin.Engine) {
+	//  Tambah data booking
+	r.POST("/booking", controllers.CreateBooking)
+
+	//  Ambil semua data booking (atau cari via query)
+	r.GET("/booking/search", controllers.SearchBooking)
+
+	//  Ambil detail booking berdasarkan ID (buat antrian-lihat)
+	r.GET("/booking/all", controllers.GetAllBookings)
+
+	//  Update data booking
+	r.PUT("/booking/update/:id", controllers.UpdateBooking)
+
+	//  Cek update untuk notifikasi lokal
+	r.GET("/check-update", controllers.CheckUpdate)
+
+	//  register token
+	r.POST("/register-token", controllers.RegisterToken)
+
+	//  Update data balik nama
+	r.PUT("/baliknama/update/:id", controllers.UpdateBalikNama)
+
+	// ambill detail balik nama berdasarkan ID
+	r.GET("/baliknama/all", controllers.GetAllBalikNama)
+
+	// Update data mutasi kendaraan
+	r.PUT("/mutasikendaraan/update/:id", controllers.UpdateMutasi)
+
+	// ambil detail mutasi kendaraan berdasarkan ID
+	r.GET("/mutasikendaraan/all", controllers.GetAllMutasi)
+
+	// AUTH
+	r.POST("/register", controllers.Register)
+	r.POST("/login", controllers.Login)
+	r.POST("/logout", controllers.Logout)
+	r.GET("/profil/:token", controllers.Profil)
+
+	//status keknya dihapus
+	r.GET("/get-status/:id", controllers.GetStatus)    // Untuk mengambil status
+	r.POST("/update-status", controllers.UpdateStatus) // Untuk memperbarui status
+
+	//login admin
+	r.POST("/admin/create", controllers.CreateAdmin)
+	r.GET("/admin/all", controllers.GetAllAdmin)
+	r.POST("/admin/login", controllers.AdminLogin)
+
+	// Simple Notification routes keknya dihapus
+	r.GET("/notifications/simple", controllers.GetSimpleNotifications) // hanya nomor_hp dan status
+	r.GET("/status/latest", controllers.GetLatestStatus)               // status terbaru saja
+	r.GET("/status/history", controllers.GetStatusHistory)             // riwayat status
+	r.POST("/notifications/simple", controllers.CreateSimpleNotification)
+	r.POST("/send-notification", controllers.SendNotificationHandler)
+	r.GET("/api/notifications", controllers.GetSimpleNotifications)
+
+	//dashboard admin 
+	r.GET("/dashboard/stats", controllers.DashboardStats)
+}
+
