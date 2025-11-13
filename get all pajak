@@ -1,0 +1,42 @@
+ini controller get All pajak:
+
+// ======================================================
+// GET SEMUA DATA PAJAK
+// ======================================================
+func GetAllBookings(c *gin.Context) {
+	var bookings []models.PajakKendaraanBermotor
+
+	if err := config.DB.Find(&bookings).Error; err != nil {
+		utils.Error(c, "Gagal mengambil data dari database: "+err.Error())
+		return
+	}
+
+	results := []map[string]interface{}{}
+	for _, b := range bookings {
+		tanggalDisplay := "-"
+		if !b.Tanggal.IsZero() {
+			tanggalDisplay = b.Tanggal.Format("2006-01-02")
+		}
+
+		results = append(results, map[string]interface{}{
+			"id":              b.ID,
+			"nama":            b.Nama,
+			"nomor_kendaraan": b.NomorKendaraan,
+			"nomor_hp":        b.NomorHP,
+			"tanggal":         tanggalDisplay,
+			"kampung":         b.Kampung,
+			"catatan":         b.Catatan,
+			"status":          b.Status,
+			"tim":             b.Tim,
+			"catatan_admin":   b.CatatanAdmin,
+			"harga":           b.Harga,
+			"jenis_layanan":   "Pajak Kendaraan Bermotor",
+		})
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"status": "success",
+		"data":   results,
+	})
+}
+
