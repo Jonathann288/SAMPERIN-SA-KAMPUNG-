@@ -1,0 +1,88 @@
+@extends('layouts.app')
+
+@section('content')
+<link rel="stylesheet" href="{{ asset('css/antrian.css') }}">
+
+<header class="topbar">
+    <h1>Daftar Antrian Pajak Kendaraan Bermotor</h1>
+</header>
+
+<div class="queue-list">
+    @forelse ($data as $item)
+    <div class="queue-card" data-id="{{ $item['id'] ?? '' }}">
+        <div class="queue-info">
+            <strong>{{ $item['nama'] ?? '-' }}</strong> — {{ $item['kampung'] ?? '-' }} <br>
+
+            <span>
+                {{ $item['nomor_kendaraan'] ?? '-' }} -
+                {{ $item['jenis_layanan'] ?? 'Pajak Kendaraan Bermotor' }}
+            </span><br>
+
+            {{-- 🔹 Status dengan warna dinamis --}}
+            <span>Status:
+                <b class="status
+                        @if(($item['status'] ?? '') == 'Menunggu') waiting
+                        @elseif(($item['status'] ?? '') == 'Diproses') process
+                        @elseif(($item['status'] ?? '') == 'Selesai') done
+                        @endif">
+                    {{ $item['status'] ?? 'Menunggu' }}
+                </b>
+            </span><br>
+
+            <span>Telp: {{ $item['nomor_hp'] ?? '-' }}</span><br>
+
+            {{-- 🔹 Tanggal Preferensi --}}
+            <span class="info-line">Tanggal Preferensi:
+                <b>{{ $item['tanggal'] ?? '-' }}</b>
+            </span><br>
+
+            {{-- 🔹 Tim --}}
+            <span class="info-line">Tim Datang:
+                <b>{{ $item['tim'] ?? '-' }}</b>
+            </span><br>
+
+            {{-- 🔹 Total Pembayaran --}}
+            <span class="info-line">Total Pembayaran:
+                <b>Rp {{ $item['harga'] ?? '-' }}</b>
+            </span><br>
+
+            {{-- 🔹 Catatan Admin --}}
+            <span class="info-line">Catatan Admin:
+                <b>{{ $item['catatan_admin'] ?? '-' }}</b>
+            </span>
+        </div>
+
+        {{-- 🔹 Tombol Aksi --}}
+        <div class="queue-actions">
+            <button class="btn edit"
+                onclick="editDetail({{ $item['id'] ?? 'null' }})"
+                @if(empty($item['id'])) disabled @endif>
+                Edit
+            </button>
+            <button class="btn view"
+                onclick="openDetail({{ $item['id'] ?? 'null' }})"
+                @if(empty($item['id'])) disabled @endif>
+                Set Konfirmasi
+            </button>
+
+        </div>
+    </div>
+    @empty
+    <p>Tidak ada data antrian ditemukan dari server backend.</p>
+    @endforelse
+</div>
+
+<script>
+    const baseUrl = "{{ url('antrian/lihat') }}/";
+
+    // 🔹 Fungsi buka halaman detail (lihat data)
+    function openDetail(id) {
+        window.location.href = baseUrl + id;
+    }
+
+    // 🔹 Fungsi buka halaman edit (gunakan form yang sama)
+    function editDetail(id) {
+        window.location.href = baseUrl + id;
+    }
+</script>
+@endsection
