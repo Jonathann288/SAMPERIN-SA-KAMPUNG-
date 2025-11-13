@@ -1,0 +1,184 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Http;
+
+class AntrianController extends Controller
+{
+    /**
+     * GET all bookings
+     */
+    public function index()
+    {
+        try {
+            $response = Http::timeout(10)->get(env('BACKEND_API_URL') . '/booking/all');
+
+            $data = $response->successful()
+                ? ($response->json()['data'] ?? [])
+                : [];
+        } catch (\Exception $e) {
+            \Log::error('Backend error:', ['msg' => $e->getMessage()]);
+            $data = [];
+        }
+
+        return view('antrian', compact('data'));
+    }
+
+
+    /**
+     * SHOW detail booking
+     * backend TIDAK ada endpoint /booking/:id
+     * jadi ambil dari /booking/all lalu filter
+     */
+    public function show($id)
+    {
+        try {
+            $response = Http::timeout(10)->get(env('BACKEND_API_URL') . "/booking/all");
+
+            if ($response->successful()) {
+                $all = $response->json()['data'] ?? [];
+                $data = collect($all)->firstWhere('id', (int)$id);
+            } else {
+                $data = null;
+            }
+        } catch (\Exception $e) {
+            \Log::error("🔥 Error ambil detail booking: {$id}", ['error' => $e->getMessage()]);
+            $data = null;
+        }
+
+        return view('antrian-lihat', compact('data'));
+    }
+
+    /**
+     * UPDATE booking
+     */
+    public function update(Request $request, $id)
+    {
+        try {
+            $payload = [
+                'tanggal'        => $request->input('tanggal'),
+                'tim'            => $request->input('tim'),
+                'catatan_admin'  => $request->input('catatan_admin'),   // FIX!
+                'harga'          => $request->input('harga'),           // FIX!
+                'status'         => $request->input('status'),
+            ];
+
+            \Log::info("📦 UPDATE PAYLOAD BOOKING {$id}", $payload);
+
+            $response = Http::timeout(10)
+                ->asJson()
+                ->put(env('BACKEND_API_URL') . "/booking/update/{$id}", $payload);
+
+            if ($response->successful()) {
+                return redirect()->route('antrian')->with('success', '✅ Data berhasil diperbarui.');
+            }
+
+            \Log::error("⚠️ Gagal update booking {$id}", [
+                'status' => $response->status(),
+                'body'   => $response->body(),
+            ]);
+
+            return redirect()->back()->with('error', '⚠️ Gagal update data.');
+        } catch (\Exception $e) {
+            \Log::error("🔥 Exception update booking {$id}", ['error' => $e->getMessage()]);
+            return redirect()->back()->with('error', '❌ Error: ' . $e->getMessage());
+        }
+    }
+}
+
+
+BLADE
+@extends('layouts.app')
+
+@section('content')
+<link rel="stylesheet" href="{{ asset('css/antrian.css') }}">
+
+<header class="topbar">
+    <h1>Daftar Antrian Pajak Kendaraan Bermotor</h1>
+</header>
+
+<div class="queue-list">
+    @forelse ($data as $item)
+    <div class="queue-card" data-id="{{ $item['id'] }}">
+
+        <div class="queue-info">
+            {{-- Nama dan Kampung --}}
+            <strong>{{ $item['nama'] }}</strong> — {{ $item['kampung'] }} <br>
+
+            {{-- Nomor Kendaraan dan Jenis Layanan --}}
+            <span>
+                {{ $item['nomor_kendaraan'] }} -
+                {{ $item['jenis_layanan'] }}
+            </span><br>
+
+            {{-- Status --}}
+            <span>Status:
+                <b class="status
+                    @if($item['status'] == 'Menunggu') waiting
+                    @elseif($item['status'] == 'Diproses') process
+                    @elseif($item['status'] == 'Selesai') done
+                    @endif
+                ">
+                    {{ $item['status'] }}
+                </b>
+            </span><br>
+
+            {{-- Nomor HP --}}
+            <span>Telp: {{ $item['nomor_hp'] }}</span><br>
+
+            {{-- Tanggal --}}
+            <span class="info-line">
+                Tanggal Preferensi: <b>{{ $item['tanggal'] }}</b>
+            </span><br>
+
+            {{-- Tim --}}
+            <span class="info-line">
+                Tim Datang: <b>{{ $item['tim'] ?: '-' }}</b>
+            </span><br>
+
+            {{-- Harga --}}
+            <span class="info-line">
+                Total Pembayaran:
+                <b>Rp {{ number_format($item['harga'], 0, ',', '.') }}</b>
+            </span><br>
+
+            {{-- Catatan Admin --}}
+            <span class="info-line">
+                Catatan Admin: <b>{{ $item['catatan_admin'] ?: '-' }}</b>
+            </span>
+
+            {{-- Catatan User --}}
+            <span class="info-line">
+                Catatan User: <b>{{ $item['catatan'] ?: '-' }}</b>
+            </span>
+        </div>
+
+        {{-- Tombol Aksi --}}
+        <div class="queue-actions">
+            <button class="btn edit"
+                onclick="goToDetail({{ $item['id'] }})">
+                Edit
+            </button>
+
+            <button class="btn view"
+                onclick="goToDetail({{ $item['id'] }})">
+                Set Konfirmasi
+            </button>
+        </div>
+
+    </div>
+    @empty
+        <p>Tidak ada data antrian ditemukan dari backend.</p>
+    @endforelse
+</div>
+
+<script>
+    const baseUrl = "{{ url('antrian/lihat') }}/";
+
+    function goToDetail(id) {
+        window.location.href = baseUrl + id;
+    }
+</script>
+@endsection
