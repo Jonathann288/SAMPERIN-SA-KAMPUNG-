@@ -1,0 +1,69 @@
+package models
+
+import "gorm.io/gorm"
+
+type Booking struct {
+    ID            uint           `json:"id" gorm:"primaryKey"`
+    CreatedAt     string         `json:"created_at"`
+    UpdatedAt     string         `json:"updated_at"`
+    DeletedAt     gorm.DeletedAt `json:"deleted_at" gorm:"index"`
+
+    Nama          string `json:"nama"`
+    NomorKendaraan string `json:"nomor_kendaraan"`
+    NomorHP       string `json:"nomor_hp"`
+    Tanggal       string `json:"tanggal"`
+    Kampung       string `json:"kampung"`
+    Catatan       string `json:"catatan"`
+    Status        string `json:"status"`
+    Tim           string `json:"tim"`
+    CatatanAdmin  string `json:"catatan_admin"`
+    Harga         string `json:"harga"`
+}
+
+
+
+package models
+
+import "gorm.io/gorm"
+
+type Mutasi struct {
+    ID            uint           `json:"id" gorm:"primaryKey"`
+    CreatedAt     string         `json:"created_at"`
+    UpdatedAt     string         `json:"updated_at"`
+    DeletedAt     gorm.DeletedAt `json:"deleted_at" gorm:"index"`
+
+    Nama          string `json:"nama"`
+    NomorKendaraan string `json:"nomor_kendaraan"`
+    NomorHP       string `json:"nomor_hp"`
+    Tanggal       string `json:"tanggal"`
+    Kampung       string `json:"kampung"`
+    Catatan       string `json:"catatan"`
+    Status        string `json:"status"`
+    Tim           string `json:"tim"`
+    CatatanAdmin  string `json:"catatan_admin"`
+    Harga         string `json:"harga"`
+}
+
+
+
+package models
+
+import "gorm.io/gorm"
+
+type BalikNama struct {
+    ID            uint           `json:"id" gorm:"primaryKey"`
+    CreatedAt     string         `json:"created_at"`
+    UpdatedAt     string         `json:"updated_at"`
+    DeletedAt     gorm.DeletedAt `json:"deleted_at" gorm:"index"`
+
+    Nama          string `json:"nama"`
+    NomorKendaraan string `json:"nomor_kendaraan"`
+    NomorHP       string `json:"nomor_hp"`
+    Tanggal       string `json:"tanggal"`
+    Kampung       string `json:"kampung"`
+    Catatan       string `json:"catatan"`
+    Status        string `json:"status"`
+    Tim           string `json:"tim"`
+    CatatanAdmin  string `json:"catatan_admin"`
+    Harga         string `json:"harga"`
+}
