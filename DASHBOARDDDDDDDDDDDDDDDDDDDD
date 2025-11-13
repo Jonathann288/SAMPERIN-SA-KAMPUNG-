@@ -1,0 +1,206 @@
+ini dashboard controller
+package controllers
+
+import (
+	"net/http"
+	"samsat_backend/config"
+	"samsat_backend/models"
+
+	"github.com/gin-gonic/gin"
+)
+
+func DashboardStats(c *gin.Context) {
+	var bookings []models.BookingDashboard
+	if err := config.DB.Find(&bookings).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data booking"})
+		return
+	}
+
+	totalKendaraan := make(map[string]bool)
+	totalPembayaran := 0
+	totalPengguna := make(map[string]bool)
+
+	for _, b := range bookings {
+		if b.NomorKendaraan != "" {
+			totalKendaraan[b.NomorKendaraan] = true
+		}
+		if b.Status == "Selesai" {
+			totalPembayaran++
+		}
+		if b.NomorHP != "" {
+			totalPengguna[b.NomorHP] = true
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"status": "success",
+		"data": gin.H{
+			"total_kendaraan": len(totalKendaraan),
+			"total_pembayaran": totalPembayaran,
+			"total_pengguna": len(totalPengguna),
+		},
+	})
+}
+
+func GetDashboardStats(c *gin.Context) {
+    // ===== Ambil semua data =====
+    var bookings []models.Booking
+    var baliknama []models.BalikNama
+    var mutasi []models.Mutasi
+
+    config.DB.Find(&bookings)
+    config.DB.Find(&baliknama)
+    config.DB.Find(&mutasi)
+
+    // ===== Hitung Total Kendaraan Unik =====
+    kendaraanMap := make(map[string]bool)
+
+    for _, b := range bookings {
+        kendaraanMap[b.NomorKendaraan] = true
+    }
+    for _, bn := range baliknama {
+        kendaraanMap[bn.NomorKendaraan] = true
+    }
+    for _, m := range mutasi {
+        kendaraanMap[m.NomorKendaraan] = true
+    }
+
+    totalKendaraan := len(kendaraanMap)
+
+    // ===== Hitung Total Pembayaran (status = "Selesai") =====
+    totalPembayaran := 0
+    for _, b := range bookings {
+        if b.Status == "Selesai" {
+            totalPembayaran++
+        }
+    }
+
+    // ===== Hitung Pengguna Terdaftar (nomor_hp UNIQUE) =====
+    userMap := make(map[string]bool)
+
+    for _, b := range bookings {
+        userMap[b.NomorHP] = true
+    }
+    for _, bn := range baliknama {
+        userMap[bn.NomorHP] = true
+    }
+    for _, m := range mutasi {
+        userMap[m.NomorHP] = true
+    }
+
+    totalPengguna := len(userMap)
+
+    // ===== Response =====
+    c.JSON(http.StatusOK, gin.H{
+        "status": "success",
+        "data": gin.H{
+            "total_kendaraan":   totalKendaraan,
+            "total_pembayaran":  totalPembayaran,
+            "total_pengguna":    totalPengguna,
+        },
+    })
+}
+
+ini model
+package models
+
+import (
+	"time"
+
+	"gorm.io/gorm"
+)
+
+type PajakKendaraanBermotor struct {
+	gorm.Model
+	Nama           string
+	NomorKendaraan string
+	NomorHP        string
+	Tanggal        time.Time `gorm:"type:date"`
+	Kampung        string
+	Catatan        string
+	Status         string `gorm:"default:'Menunggu'"`
+	Tim            string `json:"tim" gorm:"type:varchar(100)"`
+	CatatanAdmin   string `json:"catatan_admin" gorm:"type:varchar(255)"`
+	Harga          string `json:"harga" gorm:"type:varchar(100)"`
+	FCMToken       string `json:"fcm_token" gorm:"type:varchar(255)"`
+	UserID			uint   `json:"user_id"`
+}
+
+type BalikNamaKendaraan struct {
+	gorm.Model
+	Nama           string
+	NomorKendaraan string
+	NomorHP        string
+	Tanggal        time.Time `gorm:"type:date"`
+	Kampung        string
+	Catatan        string
+	Status         string `gorm:"default:'Menunggu'"`
+	Tim            string `json:"tim" gorm:"type:varchar(100)"`
+	CatatanAdmin   string `json:"catatan_admin" gorm:"type:varchar(255)"`
+	Harga          string `json:"harga" gorm:"type:varchar(100)"`
+	FCMToken       string `json:"fcm_token" gorm:"type:varchar(255)"`
+	UserID			uint   `json:"user_id"`
+}
+
+type MutasiKendaraan struct {
+	gorm.Model
+	Nama           string
+	NomorKendaraan string
+	NomorHP        string
+	Tanggal        time.Time `gorm:"type:date"`
+	Kampung        string
+	Catatan        string
+	Status         string `gorm:"default:'Menunggu'"`
+	Tim            string `json:"tim" gorm:"type:varchar(100)"`
+	CatatanAdmin   string `json:"catatan_admin" gorm:"type:varchar(255)"`
+	Harga          string `json:"harga" gorm:"type:varchar(100)"`
+	FCMToken       string `json:"fcm_token" gorm:"type:varchar(255)"`
+	UserID			uint   `json:"user_id"`
+}
+
+type Booking struct {
+    ID              uint           `json:"id" gorm:"primaryKey"`
+    Nama            string         `json:"nama"`
+    NomorKendaraan  string         `json:"nomor_kendaraan"`
+    NomorHP         string         `json:"nomor_hp"`
+    JenisLayanan    string         `json:"jenis_layanan"`
+    Tanggal         string         `json:"tanggal"`
+    Status          string         `json:"status"`
+    CatatanAdmin    string         `json:"catatan_admin"`
+    Tim             string         `json:"tim"`
+    Harga           int            `json:"harga"`
+    CreatedAt       time.Time      `json:"created_at"`
+    UpdatedAt       time.Time      `json:"updated_at"`
+    DeletedAt       gorm.DeletedAt `json:"-" gorm:"index"`
+}
+
+type DashboardStats struct {
+    TotalKendaraan   int `json:"total_kendaraan"`
+    TotalPembayaran  int `json:"total_pembayaran"`
+    TotalPengguna    int `json:"total_pengguna"`
+}
+
+type BalikNama struct {
+    ID             uint   `json:"id"`
+    NomorKendaraan string `json:"nomor_kendaraan"`
+    PemilikBaru    string `json:"pemilik_baru"`
+    NomorHP        string `json:"nomor_hp"`
+    Status         string `json:"status"`
+}
+
+type Mutasi struct {
+    ID             uint   `json:"id"`
+    NomorKendaraan string `json:"nomor_kendaraan"`
+    Nama           string `json:"nama"`
+    NomorHP        string `json:"nomor_hp"`
+    Status         string `json:"status"`
+}
+
+type BookingDashboard struct {
+    ID              uint   `json:"id"`
+    NomorKendaraan  string `json:"nomor_kendaraan"`
+    Nama            string `json:"nama"`
+    NomorHP         string `json:"nomor_hp"`
+    Status          string `json:"status"`
+    Tanggal         string `json:"tanggal"`
+}
