@@ -1,0 +1,573 @@
+import 'package:flutter/material.dart';
+import 'dart:async';
+import 'package:awesome_notifications/awesome_notifications.dart';
+import 'login_page.dart';
+import 'FormPage.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Inisialisasi Awesome Notifications
+  await AwesomeNotifications().initialize(
+    null,
+    [
+      NotificationChannel(
+        channelKey: 'basic_channel',
+        channelName: 'Basic Notifications',
+        channelDescription: 'Channel untuk notifikasi dasar',
+        defaultColor: Color(0xFF0057A3),
+        ledColor: Colors.white,
+        importance: NotificationImportance.High,
+        channelShowBadge: true,
+        playSound: true,
+        enableVibration: true,
+        icon: 'resource://drawable/ic_launcher',
+      ),
+    ],
+    debug: true,
+  );
+
+  // Request permission
+  await AwesomeNotifications().isNotificationAllowed().then((isAllowed) {
+    if (!isAllowed) {
+      AwesomeNotifications().requestPermissionToSendNotifications();
+    }
+  });
+
+  runApp(const MyApp());
+}
+
+void showCustomSnackBar(BuildContext context, String message,
+    {bool success = true}) {
+  final overlay = Overlay.of(context);
+
+  late OverlayEntry overlayEntry;
+  overlayEntry = OverlayEntry(
+    builder: (context) => Positioned(
+      bottom: 30,
+      left: 20,
+      right: 20,
+      child: TweenAnimationBuilder<double>(
+        duration: const Duration(milliseconds: 500),
+        curve: Curves.easeOutBack,
+        tween: Tween(begin: 50, end: 0),
+        builder: (context, offset, child) {
+          final opacity = ((50 - offset) / 50).clamp(0.0, 1.0);
+          return Opacity(
+            opacity: opacity,
+            child: Transform.translate(
+              offset: Offset(0, offset),
+              child: child,
+            ),
+          );
+        },
+        child: Material(
+          color: Colors.transparent,
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: success
+                    ? [
+                        Color.fromARGB(255, 0, 152, 53),
+                        Color.fromARGB(255, 0, 152, 53)
+                      ]
+                    : [
+                        Color.fromARGB(255, 255, 0, 0),
+                        Color.fromARGB(255, 255, 38, 0)
+                      ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(15),
+              boxShadow: [
+                BoxShadow(
+                    color: Colors.black26, blurRadius: 8, offset: Offset(0, 3))
+              ],
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Row(
+              children: [
+                Icon(success ? Icons.check_circle_outline : Icons.error_outline,
+                    color: Colors.white, size: 26),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    message,
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w500),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+
+  overlay.insert(overlayEntry);
+
+  Future.delayed(const Duration(seconds: 3)).then((_) async {
+    for (double i = 1.0; i >= 0; i -= 0.1) {
+      await Future.delayed(const Duration(milliseconds: 25));
+      overlayEntry.markNeedsBuild();
+    }
+    overlayEntry.remove();
+  });
+}
+
+// ========== NOTIFICATION SERVICE ==========
+class NotificationService {
+  static final NotificationService _instance = NotificationService._internal();
+  factory NotificationService() => _instance;
+  NotificationService._internal();
+
+  Timer? _pollingTimer;
+  String? _lastNotificationId;
+  bool _isRunning = false;
+
+  // Base URL Golang Backend - GANTI DENGAN URL ANDA
+  static const String baseUrl = 'http://10.0.2.2:8080';
+
+  // Mulai polling notifikasi
+  void startPolling({int intervalSeconds = 30}) {
+    if (_isRunning) return;
+
+    _isRunning = true;
+    print('🔔 Notification polling started (interval: ${intervalSeconds}s)');
+
+    // Cek langsung saat start
+    _checkForNotifications();
+
+    // Lalu cek secara berkala
+    _pollingTimer = Timer.periodic(
+      Duration(seconds: intervalSeconds),
+      (timer) => _checkForNotifications(),
+    );
+  }
+
+  // Stop polling
+  void stopPolling() {
+    _pollingTimer?.cancel();
+    _pollingTimer = null;
+    _isRunning = false;
+    print('🔕 Notification polling stopped');
+  }
+
+  // Cek notifikasi baru dari server
+  Future<void> _checkForNotifications() async {
+    try {
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      String? userId = prefs.getString('user_id');
+      String? token =
+          prefs.getString('token'); // Ambil JWT token dari storage
+
+      if (userId == null || token == null) {
+        print('⚠ User ID or JWT token not found, skipping notification check');
+        return;
+      }
+
+      print('📡 Checking notifications for user: $userId');
+
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/notifications/$userId'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token', // <-- tambahkan ini
+        },
+      ).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        print('📦 Notification response: $data');
+
+        if (data['has_new'] == true && data['notification'] != null) {
+          final notification = data['notification'];
+          String notificationId = notification['id'].toString();
+
+          if (_lastNotificationId != notificationId) {
+            _lastNotificationId = notificationId;
+            await _showNotification(notification);
+
+            // Mark notification sebagai sudah dibaca (opsional)
+            await _markAsRead(userId, notificationId);
+          }
+        } else {
+          print('✅ No new notifications');
+        }
+      } else {
+        print('⚠ Server response: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('❌ Error checking notifications: $e');
+    }
+  }
+
+  // Tampilkan notifikasi
+  Future<void> _showNotification(Map<String, dynamic> notification) async {
+    try {
+      String title = notification['title'] ?? 'SAMPERIN SA KAMPUNG';
+      String body = notification['message'] ?? 'Ada update status baru!';
+      String type = notification['type'] ?? 'info';
+
+      // Pilih emoji berdasarkan tipe
+      String emoji = _getEmojiForType(type);
+
+      await AwesomeNotifications().createNotification(
+        content: NotificationContent(
+          id: DateTime.now().millisecondsSinceEpoch.remainder(100000),
+          channelKey: 'basic_channel',
+          title: '$emoji $title',
+          body: body,
+          notificationLayout: NotificationLayout.Default,
+          displayOnForeground: true,
+          displayOnBackground: true,
+          payload: {
+            'notification_id': notification['id'].toString(),
+            'type': type,
+          },
+        ),
+      );
+
+      print('✅ Notification displayed: $title');
+    } catch (e) {
+      print('❌ Error showing notification: $e');
+    }
+  }
+
+  // Get emoji berdasarkan tipe notifikasi
+  String _getEmojiForType(String type) {
+    switch (type.toLowerCase()) {
+      case 'approved':
+      case 'success':
+        return '✅';
+      case 'rejected':
+      case 'failed':
+        return '❌';
+      case 'pending':
+      case 'processing':
+        return '⏳';
+      case 'info':
+        return 'ℹ️';
+      case 'warning':
+        return '⚠️';
+      default:
+        return '🔔';
+    }
+  }
+
+  // Mark notification sebagai sudah dibaca (opsional)
+  Future<void> _markAsRead(String userId, String notificationId) async {
+    try {
+      await http.post(
+        Uri.parse('$baseUrl/api/notifications/mark-read'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'id': userId,
+          'notification_id': notificationId,
+        }),
+      );
+      print('📬 Notification marked as read: $notificationId');
+    } catch (e) {
+      print('⚠️ Error marking notification as read: $e');
+    }
+  }
+
+  // Manual check (untuk pull-to-refresh)
+  Future<void> manualCheck() async {
+    print('🔄 Manual notification check triggered');
+    await _checkForNotifications();
+  }
+
+  // Get status polling
+  bool get isRunning => _isRunning;
+}
+
+// ========== APP WIDGETS ==========
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'SAMPERIN SA KAMPUNG',
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF006ab5)),
+        useMaterial3: true,
+        fontFamily: 'Poppins',
+      ),
+      home: const SplashScreen(),
+    );
+  }
+}
+
+class SplashScreen extends StatefulWidget {
+  const SplashScreen({super.key});
+
+  @override
+  State<SplashScreen> createState() => _SplashScreenState();
+}
+
+class _SplashScreenState extends State<SplashScreen> {
+  @override
+  void initState() {
+    super.initState();
+    Timer(const Duration(seconds: 2), () {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const LoginPage()),
+      );
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return const Scaffold(
+      backgroundColor: Colors.white,
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Image(
+                image: AssetImage('assets/logo-samsat.png'),
+                width: 150,
+                height: 150),
+            SizedBox(height: 30),
+            Text(
+              'SAMPERIN SA KAMPUNG',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                  fontSize: 30,
+                  color: Color(0xFF0057A3),
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 2),
+            ),
+            SizedBox(height: 40),
+            CircularProgressIndicator(color: Color(0xFF0057A3)),
+            SizedBox(height: 10),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class HomePage extends StatefulWidget {
+  const HomePage({super.key});
+
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  int _selectedIndex = -1;
+  int notificationId = 0;
+  final NotificationService _notificationService = NotificationService();
+
+  @override
+  void initState() {
+    super.initState();
+
+    // Setup listener untuk ketika notifikasi di-tap
+    AwesomeNotifications().setListeners(
+      onActionReceivedMethod: onActionReceivedMethod,
+    );
+
+    // Mulai auto-check notifikasi setiap 30 detik
+    _notificationService.startPolling(intervalSeconds: 10);
+
+    print('✅ HomePage initialized - Notification polling started');
+  }
+
+  // Method yang dipanggil ketika notifikasi di-tap
+  static Future<void> onActionReceivedMethod(
+      ReceivedAction receivedAction) async {
+    print('Notifikasi di-klik: ${receivedAction.id}');
+
+    // Bisa tambahkan navigasi atau aksi lain di sini
+    if (receivedAction.payload != null) {
+      String? type = receivedAction.payload!['type'];
+      print('Notification type: $type');
+    }
+  }
+
+  // Method untuk menampilkan notifikasi manual (test)
+  Future<void> sendNotification() async {
+    try {
+      await AwesomeNotifications().createNotification(
+        content: NotificationContent(
+          id: notificationId++,
+          channelKey: 'basic_channel',
+          title: '📢 NOTIFIKASI BARU NIH',
+          body:
+              'Layanan pajak kendaraan bermotor telah tersedia di kampung Anda!',
+          notificationLayout: NotificationLayout.Default,
+          displayOnForeground: true,
+          displayOnBackground: true,
+        ),
+      );
+    } catch (e) {
+      print('Error sending notification: $e');
+      if (mounted) {
+        showCustomSnackBar(context, 'Gagal mengirim notifikasi: $e',
+            success: false);
+      }
+    }
+  }
+
+  // Method untuk manual refresh notifikasi
+  Future<void> _refreshNotifications() async {
+    await _notificationService.manualCheck();
+    if (mounted) {
+      showCustomSnackBar(context, 'Memeriksa notifikasi baru...',
+          success: true);
+    }
+  }
+
+  void _onNavTapped(int index) {
+    setState(() {
+      _selectedIndex = index;
+    });
+
+    if (index == 0) {
+      Navigator.push(
+          context,
+          MaterialPageRoute(
+              builder: (context) =>
+                  const FormPage(layanan: 'Booking Antrian')));
+    } else if (index == 1) {
+      Navigator.push(
+          context, MaterialPageRoute(builder: (context) => const SearchPage()));
+    } else if (index == 2) {
+      Navigator.push(context,
+          MaterialPageRoute(builder: (context) => const PanduanPage()));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: SafeArea(
+        child: RefreshIndicator(
+          onRefresh: _refreshNotifications,
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            child: Column(
+              children: [
+                Container(
+                  width: double.infinity,
+                  padding:
+                      const EdgeInsets.symmetric(vertical: 15, horizontal: 20),
+                  decoration: const BoxDecoration(color: Color(0xFFc4d9e6)),
+                  child: Row(
+                    children: [
+                      Image.asset('assets/logoPPS.png', width: 35, height: 35),
+                      const SizedBox(width: 15),
+                      Image.asset('assets/logo-samsat.png',
+                          width: 45, height: 45),
+                      const SizedBox(width: 15),
+                      const Expanded(
+                        child: Text(
+                          'SAMPERIN SA KAMPUNG',
+                          style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF003366)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  width: double.infinity,
+                  height: 240,
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.white, width: 4),
+                    image: const DecorationImage(
+                        image: AssetImage('assets/samperin.png'),
+                        fit: BoxFit.cover),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: 15),
+                      const Text(
+                        'Kenapa SAMPERIN?',
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
+                            color: Color(0xFF0057A3)),
+                      ),
+                      const SizedBox(height: 10),
+                      const Text(
+                        'Layanan jemput bola untuk pembayaran dan administrasi perpajakan kendaraan bermotor di kampung-kampung terpencil.',
+                        style: TextStyle(fontSize: 14, height: 1.4),
+                      ),
+                      const SizedBox(height: 25),
+
+                      // Info auto notification
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Color(0xFF0057A3).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                          border:
+                              Border.all(color: Color(0xFF0057A3), width: 1),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.info_outline, color: Color(0xFF0057A3)),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                'Auto-check notifikasi aktif. Anda akan menerima notifikasi otomatis dari admin.',
+                                style: TextStyle(
+                                    fontSize: 12, color: Color(0xFF0057A3)),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _selectedIndex == -1 ? 0 : _selectedIndex,
+        onTap: _onNavTapped,
+        backgroundColor: const Color(0xFF0057A3),
+        selectedItemColor: Colors.white,
+        unselectedItemColor: Colors.white70,
+        type: BottomNavigationBarType.fixed,
+        items: const [
+          BottomNavigationBarItem(
+              icon: Icon(Icons.add), label: 'Ajukan Permintaan'),
+          BottomNavigationBarItem(icon: Icon(Icons.search), label: 'Search'),
+          BottomNavigationBarItem(icon: Icon(Icons.help), label: 'Panduan'),
+        ],
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    // Stop polling saat HomePage di-dispose
+    _notificationService.stopPolling();
+    AwesomeNotifications().dispose();
+    super.dispose();
+  }
+}
