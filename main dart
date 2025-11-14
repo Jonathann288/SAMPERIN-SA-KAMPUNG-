@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:awesome_notifications/awesome_notifications.dart';
 import 'login_page.dart';
 import 'FormPage.dart';
+import 'SearchPage.dart';
+import 'PanduanPage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
@@ -200,6 +202,10 @@ class NotificationService {
         } else {
           print('✅ No new notifications');
         }
+      } else if (response.statusCode == 401 || response.statusCode == 404) {
+        // User tidak valid atau tidak ditemukan di database, stop polling
+        print('⚠ User not found or unauthorized, stopping notification polling');
+        stopPolling();
       } else {
         print('⚠ Server response: ${response.statusCode}');
       }
@@ -368,7 +374,6 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   int _selectedIndex = -1;
-  int notificationId = 0;
   final NotificationService _notificationService = NotificationService();
 
   @override
@@ -398,29 +403,7 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  // Method untuk menampilkan notifikasi manual (test)
-  Future<void> sendNotification() async {
-    try {
-      await AwesomeNotifications().createNotification(
-        content: NotificationContent(
-          id: notificationId++,
-          channelKey: 'basic_channel',
-          title: '📢 NOTIFIKASI BARU NIH',
-          body:
-              'Layanan pajak kendaraan bermotor telah tersedia di kampung Anda!',
-          notificationLayout: NotificationLayout.Default,
-          displayOnForeground: true,
-          displayOnBackground: true,
-        ),
-      );
-    } catch (e) {
-      print('Error sending notification: $e');
-      if (mounted) {
-        showCustomSnackBar(context, 'Gagal mengirim notifikasi: $e',
-            success: false);
-      }
-    }
-  }
+
 
   // Method untuk manual refresh notifikasi
   Future<void> _refreshNotifications() async {
