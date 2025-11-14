@@ -134,7 +134,7 @@ class NotificationService {
   bool _isRunning = false;
 
   // Base URL Golang Backend - GANTI DENGAN URL ANDA
-  static const String baseUrl = 'http://10.0.2.2:8080';
+  static const String baseUrl = 'https://320d551b461a.ngrok-free.app';
 
   // Mulai polling notifikasi
   void startPolling({int intervalSeconds = 30}) {
